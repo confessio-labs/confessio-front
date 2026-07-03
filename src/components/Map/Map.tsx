@@ -35,6 +35,7 @@ const Map = ({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<LeafletMap | null>(null);
   const [mapInstance, setMapInstance] = useState<LeafletMap | null>(null);
+  const [tilesReady, setTilesReady] = useState(false);
 
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -87,10 +88,10 @@ const Map = ({
   useEffect(() => {
     if (mapRef.current && !mapInstanceRef.current) {
       const startingBounds = initialBounds || {
-        north: 48.9,
-        west: 2.18,
-        south: 48.78,
-        east: 2.48,
+        north: 48.902,
+        west: 2.25,
+        south: 48.815,
+        east: 2.42,
       };
 
       const map = L.map(mapRef.current, {
@@ -117,9 +118,18 @@ const Map = ({
       const canvas = document.createElement("canvas");
       const gl = canvas.getContext("webgl2");
       if (gl) {
-        new MaptilerLayer({
+        const layer = new MaptilerLayer({
           apiKey: MAP_TILER_API_KEY || "",
         }).addTo(map);
+        // Reveal the map (fade out the shimmer) on first full render.
+        try {
+          layer.getMaptilerSDKMap().once("load", () => setTilesReady(true));
+        } catch {
+          setTilesReady(true);
+        }
+      } else {
+        // No WebGL2 → no tile layer to wait for; drop the shimmer immediately.
+        setTilesReady(true);
       }
     }
   }, [setMap, initialBounds, getActiveAreaStyles]);
@@ -145,8 +155,9 @@ const Map = ({
   }, [currentPosition]);
 
   return (
-    <div ref={mapRef} className="h-full w-full">
-      {mapInstance && (
+    <div className="relative h-full w-full">
+      <div ref={mapRef} className="h-full w-full">
+        {mapInstance && (
         <>
           {searchResults?.churches.map((church) => (
             <ChurchMarker
@@ -181,7 +192,12 @@ const Map = ({
             />
           )}
         </>
-      )}
+        )}
+      </div>
+      <div
+        aria-hidden
+        className={`map-shimmer${tilesReady ? " map-shimmer--hidden" : ""}`}
+      />
     </div>
   );
 };

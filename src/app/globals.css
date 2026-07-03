@@ -34,6 +34,8 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Disable double-tap-to-zoom (app-like feel) while keeping pinch-to-zoom for accessibility */
+  touch-action: manipulation;
 }
 
 /* Tabular (equal-width) numerals for times. Same sans as body, just aligned. */
@@ -87,6 +89,45 @@ button:not(:disabled) {
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* Map tile-loading shimmer — covers the beige style background until the
+   MapTiler map fires its first `load`, then fades out. */
+.map-shimmer {
+  position: absolute;
+  inset: 0;
+  z-index: 500;
+  pointer-events: none;
+  background-color: var(--color-hairline);
+  background-image: linear-gradient(
+    100deg,
+    transparent 25%,
+    var(--color-paper) 40%,
+    rgba(255, 255, 255, 0.95) 50%,
+    var(--color-paper) 60%,
+    transparent 75%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: map-shimmer-sweep 1.25s ease-in-out infinite;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+.map-shimmer--hidden {
+  opacity: 0;
+}
+@keyframes map-shimmer-sweep {
+  0% {
+    background-position: 150% 0;
+  }
+  100% {
+    background-position: -50% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-shimmer {
+    animation: none;
+  }
 }
 
 /* Leaflet overrides */
@@ -167,7 +208,12 @@ button:not(:disabled) {
   color: white;
   font-weight: 600;
   font-size: 13px;
-  width: 50px;
+  width: max-content;
+  min-width: 44px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  transform: translate(-50%, -100%);
   border-radius: 15px;
   display: flex;
   align-items: center;
@@ -198,7 +244,12 @@ button:not(:disabled) {
   color: white;
   font-weight: 600;
   font-size: 14px;
-  width: 58px;
+  width: max-content;
+  min-width: 50px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  transform: translate(-50%, -100%);
   border-radius: 15px;
   display: flex;
   align-items: center;

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import ModalSheetScroller from "./ModalSheet/ModalSheetScroller";
 import ModalSheetDragZone from "./ModalSheet/ModalSheetDragZone";
+import { useSheetRef } from "./ModalSheet/SheetContext";
+import { useKeyboardOverlap } from "@/hooks/useKeyboardOverlap";
 import { fetchApi, getFrenchTimeString } from "@/utils";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -248,6 +250,29 @@ const ChurchCard = ({
   useEffect(() => {
     if (feedbackOpen) textareaRef.current?.focus();
   }, [feedbackOpen]);
+
+  // iOS keyboard vs the bottom sheet: the card lives in a fixed, transformed
+  // sheet sized off window.innerHeight, and on iOS the keyboard overlays the
+  // page instead of resizing it — so the feedback box (near the bottom of the
+  // card) ends up entirely behind the keyboard, and iOS's automatic
+  // scroll-into-view fails inside the fixed sheet. When the keyboard opens:
+  // 1. expand the sheet to its top snap point (at the half snap point the
+  //    keyboard covers nearly all of the visible sheet),
+  // 2. pad the box by the keyboard height (keyboardOverlap, also applied
+  //    below as paddingBottom) so the scroller has room to place it higher,
+  // 3. scroll the box into view with block "end": aligning its padded bottom
+  //    with the scroller bottom puts the box itself right above the keyboard.
+  const sheetRef = useSheetRef();
+  const feedbackBoxRef = useRef<HTMLDivElement>(null);
+  const keyboardOverlap = useKeyboardOverlap(feedbackOpen !== null);
+  useEffect(() => {
+    if (keyboardOverlap === 0) return;
+    sheetRef?.current?.snapTo(0);
+    feedbackBoxRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  }, [keyboardOverlap, sheetRef]);
 
   const handleFeedbackClick = (type: "good" | "error") => {
     posthog.capture(
@@ -553,7 +578,14 @@ const ChurchCard = ({
             </div>
 
             {feedbackOpen && (
-              <div className="w-full px-4">
+              <div
+                ref={feedbackBoxRef}
+                className="w-full px-4"
+                // Keyboard-height padding so the box can sit fully above the
+                // iOS keyboard when scrolled into view (see keyboardOverlap
+                // effect above).
+                style={{ paddingBottom: keyboardOverlap }}
+              >
                 <div className="bg-paper rounded-xl p-3 flex flex-col gap-2 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.2)]">
                   {feedbackOpen === "error" && (
                     <div className="grid grid-cols-2 gap-1.5">
@@ -591,7 +623,8 @@ const ChurchCard = ({
                     placeholder="Un commentaire ? (optionnel)"
                     rows={3}
                     disabled={postReport.isPending}
-                    className="w-full resize-none text-ink text-[13px] leading-normal placeholder:text-ink/40 bg-transparent focus:outline-none disabled:opacity-60"
+                    // Keep mobile font-size >= 16px: iOS Safari force-zooms into inputs below 16px. Do not lower.
+                    className="w-full resize-none text-ink text-[16px] md:text-[13px] leading-normal placeholder:text-ink/40 bg-transparent focus:outline-none disabled:opacity-60"
                   />
                   {postReport.isError && (
                     <p className="text-rose-600 text-[12px]">
