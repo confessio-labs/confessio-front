@@ -44,7 +44,7 @@ const NavigationModal = ({
             width={24}
             height={24}
           />
-          <h2 className="font-semibold md:text-xl">Confessio</h2>
+          <h2 className="text-white font-semibold md:text-xl">Confessio</h2>
         </div>
         <div className="flex flex-col gap-0.5 items-center justify-cente text-sm">
           <Link
@@ -98,9 +98,20 @@ const NavigationModal = ({
           )}
         </p>
         <div className="flex flex-col items-center justify-center gap-2">
-          <span className="text-xs text-gray-300">Un projet généreusement encouragé par</span>
-          <a href="https://hozana.org" target="_blank" rel="noopener noreferrer">
-            <Image src="/hozana-logo-white.png" alt="Hozana" height={28} width={112} />
+          <span className="text-xs text-gray-300">
+            Un projet généreusement encouragé par
+          </span>
+          <a
+            href="https://hozana.org"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Image
+              src="/hozana-logo-white.png"
+              alt="Hozana"
+              height={28}
+              width={112}
+            />
           </a>
         </div>
       </div>

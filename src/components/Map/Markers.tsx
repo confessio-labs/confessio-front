@@ -1,7 +1,8 @@
-import { AggregatedSearchResults, getFrenchTimeString } from "@/utils";
+import { AggregatedSearchResults, getChurchMarkerLabel } from "@/utils";
 import L, { Map, Marker as LeafletMarker } from "leaflet";
 import { useEffect, useRef } from "react";
 import { useMapRouter } from "@/hooks/useMapRouter";
+import { useDateFilter } from "@/hooks/useDateFilter";
 
 export const ChurchMarker = ({
   map,
@@ -14,20 +15,20 @@ export const ChurchMarker = ({
 }) => {
   const router = useMapRouter();
   const markerRef = useRef<LeafletMarker | null>(null);
+  const { date } = useDateFilter();
 
-  const firstDayFirstEvent = Object.values(
-    eventsByDay || {},
-  )?.[0]?.[0];
-  const timeLabel = firstDayFirstEvent
-    ? getFrenchTimeString(firstDayFirstEvent.start)
-    : null;
+  const firstEventStart = Object.values(eventsByDay || {})?.[0]?.[0]?.start;
+
+  const timeLabel = getChurchMarkerLabel(firstEventStart, date !== null);
 
   useEffect(() => {
     let marker: LeafletMarker;
 
     if (timeLabel === null) {
       const emptySize = selected ? 20 : 14;
-      const cls = selected ? "empty-church-marker-selected" : "empty-church-marker";
+      const cls = selected
+        ? "empty-church-marker-selected"
+        : "empty-church-marker";
       marker = L.marker([latitude, longitude], {
         icon: L.divIcon({
           className: "",
@@ -45,14 +46,15 @@ export const ChurchMarker = ({
         });
     } else {
       const markerClass = selected ? "church-marker-selected" : "church-marker";
-      const size: [number, number] = selected ? [58, 28] : [50, 24];
       marker = L.marker([latitude, longitude], {
         icon: L.divIcon({
           className: "", // needed to remove the default leaflet class
           html: `<div class="${markerClass}">${timeLabel}</div>`,
-          iconSize: size,
-          popupAnchor: [0, -size[1]], // from the iconAnchor, up the entire height
-          iconAnchor: [size[0] / 2, size[1]], // from the top left, half the width and the entire height
+          // Zero-size anchor at the coordinate; the pill sizes to its content
+          // and is centered above the point via CSS transform.
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+          popupAnchor: [0, selected ? -34 : -30],
         }),
         zIndexOffset: selected ? 1000 : 0,
       })
