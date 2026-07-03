@@ -103,6 +103,48 @@ export const getFrenchTimeString = (dateString: string) => {
 };
 
 /**
+ * Label shown on a church map pin for its next confession.
+ * - With an active date filter: the time (e.g. "10h30").
+ * - Otherwise, based on how many calendar days away it is (local time):
+ *   - today: the time
+ *   - tomorrow: "Demain"
+ *   - 2–6 days: the French weekday + day (e.g. "Sam. 15")
+ *   - 7+ days: the date (e.g. "14 juil.")
+ * Returns null when there is no upcoming confession.
+ */
+export const getChurchMarkerLabel = (
+  startDateString: string | undefined,
+  dateFilterActive: boolean,
+): string | null => {
+  if (!startDateString) return null;
+
+  const eventDate = new Date(startDateString);
+  if (isNaN(eventDate.getTime())) return null;
+
+  if (dateFilterActive) return getFrenchTimeString(startDateString) ?? null;
+
+  const startOfDay = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const daysAway = Math.round(
+    (startOfDay(eventDate) - startOfDay(new Date())) / 86_400_000,
+  );
+
+  if (daysAway <= 0) return getFrenchTimeString(startDateString) ?? null;
+  if (daysAway === 1) return "Demain";
+  if (daysAway <= 6) {
+    const label = eventDate.toLocaleDateString("fr-FR", {
+      weekday: "short",
+      day: "numeric",
+    });
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }
+  return eventDate.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "short",
+  });
+};
+
+/**
  * Creates a nice string to better describe confession times
  */
 export const getConfessionTimeString = ({

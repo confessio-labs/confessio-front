@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 import { useAtom } from "jotai";
 import { isSearchFocusedAtom } from "@/atoms";
 import { useMapRouter } from "@/hooks/useMapRouter";
+import { useKeyboardOverlap } from "@/hooks/useKeyboardOverlap";
 import {
   ArrowLeftIcon,
   BuildingsIcon,
@@ -43,6 +44,11 @@ export const SearchInput = ({
   const pathname = usePathname();
   const [isNavigationModalOpen, setIsNavigationModalOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // iOS keyboard overlays the h-dvh overlay instead of shrinking it; pad the
+  // results list by the covered height so the last results stay reachable
+  // (see useKeyboardOverlap for details).
+  const keyboardOverlap = useKeyboardOverlap(isFocused);
 
   const closeSearch = useCallback(() => {
     setIsFocused(false);
@@ -164,7 +170,8 @@ export const SearchInput = ({
               history.pushState({ search: true }, "");
             }}
             onBlur={() => setIsFocused(false)}
-            className="outline-none flex-1 bg-transparent text-deepblue placeholder:text-deepblue/45 text-[15px]"
+            // Keep mobile font-size >= 16px: iOS Safari force-zooms into inputs below 16px. Do not lower.
+            className="outline-none flex-1 bg-transparent text-deepblue placeholder:text-deepblue/45 text-[16px] md:text-[15px]"
           />
           {isLoading && (
             <CircleNotchIcon
@@ -194,6 +201,9 @@ export const SearchInput = ({
             "min-h-0 overflow-y-auto bg-white rounded-b-2xl -mt-5 pt-5",
             { hidden: !isFocused, "flex-1": !hasResults },
           )}
+          // Keyboard-height padding so the end of the list is scrollable
+          // above the iOS keyboard (see keyboardOverlap effect above).
+          style={{ paddingBottom: keyboardOverlap }}
         >
           {isFocused && data.length === 0 && !isLoading && (
             <li className="flex items-center justify-center h-full p-4">

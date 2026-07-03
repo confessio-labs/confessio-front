@@ -8,7 +8,7 @@ import ModalSheetScroller from "./ModalSheet/ModalSheetScroller";
 import ModalSheetDragZone from "./ModalSheet/ModalSheetDragZone";
 import { AggregatedSearchResults } from "@/utils";
 import ChurchTile from "./ChurchTile";
-import { useDateFilter } from "@/hooks/useDateFilter";
+import DateFilterRail from "./DateFilterRail";
 import { components } from "@/types";
 import { useSearchResults } from "@/hooks/useSearchResults";
 
@@ -20,7 +20,6 @@ function ModalSheet({
   selectedChurch?: components["schemas"]["ChurchDetails"];
 }) {
   // URL is the single source of truth - use the church from server if present
-  const { date, setDate } = useDateFilter();
   const sheetRef = useSheetRef();
   const { data: searchResults } = useSearchResults();
 
@@ -43,27 +42,10 @@ function ModalSheet({
               <h4 className="text-base md:text-lg font-semibold text-white px-4">
                 Horaires de confession proches de vous
               </h4>
-              <div className="px-4 grid grid-cols-2 pb-2">
-                <label
-                  htmlFor="date-filter"
-                  className="text-sm font-medium text-gray-300 flex items-center"
-                >
-                  Sélectionner une date
-                </label>
-                <input
-                  id="date-filter"
-                  type="date"
-                  className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lightblue focus:border-transparent backdrop-blur-sm"
-                  min={new Date().toISOString().split("T")[0]}
-                  value={date?.toISOString().split("T")[0] || ""}
-                  onChange={({ target }) =>
-                    setDate(target.value ? new Date(target.value) : null)
-                  }
-                />
-              </div>
             </div>
-            <hr className="text-gray-500" />
           </ModalSheetDragZone>
+          <DateFilterRail />
+          <hr className="text-gray-500 mt-2" />
           <ModalSheetScroller draggableAt="top">
             <div className="p-4 space-y-4">
               {displayedSearchResults?.churches?.map((church) => (
