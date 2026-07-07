@@ -140,6 +140,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/front/api/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Api Front Post Images */
+        post: operations["front_front_api_api_front_post_images"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -244,6 +261,8 @@ export interface components {
             schedules: components["schemas"]["ScheduleOut"][];
             /** Parsings */
             parsings: components["schemas"]["ParsingOut"][];
+            /** Periods */
+            periods: components["schemas"]["PeriodEnum"][];
         };
         /**
          * FeedbackTypeEnum
@@ -262,6 +281,11 @@ export interface components {
             /** Image Url */
             image_url: string | null;
         };
+        /**
+         * PeriodEnum
+         * @enum {string}
+         */
+        PeriodEnum: "summer" | "winter" | "advent" | "lent" | "solemnities" | "holy_week" | "school_holidays";
         /** ReportOut */
         ReportOut: {
             /**
@@ -372,6 +396,16 @@ export interface components {
             error_type?: components["schemas"]["ErrorTypeEnum"] | null;
             /** Comment */
             comment?: string | null;
+        };
+        /** ImageOut */
+        ImageOut: {
+            /**
+             * Image Uuid
+             * Format: uuid
+             */
+            image_uuid: string;
+            /** Public Url */
+            public_url: string;
         };
     };
     responses: never;
@@ -607,6 +641,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReportOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    front_front_api_api_front_post_images: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Website Uuid
+                     * Format: uuid
+                     */
+                    website_uuid: string;
+                    /** Comment */
+                    comment?: string | null;
+                    /**
+                     * Document
+                     * Format: binary
+                     */
+                    document: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
                 };
             };
             /** @description Not Found */

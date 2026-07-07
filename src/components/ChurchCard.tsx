@@ -6,7 +6,7 @@ import ModalSheetScroller from "./ModalSheet/ModalSheetScroller";
 import ModalSheetDragZone from "./ModalSheet/ModalSheetDragZone";
 import { useSheetRef } from "./ModalSheet/SheetContext";
 import { useKeyboardOverlap } from "@/hooks/useKeyboardOverlap";
-import { fetchApi, getFrenchTimeString } from "@/utils";
+import { fetchApi, getFrenchTimeString, getHolidayWarningReason } from "@/utils";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import posthog from "posthog-js";
@@ -18,6 +18,7 @@ import {
   SealCheckIcon,
   ThumbsDownIcon,
   ThumbsUpIcon,
+  WarningCircleIcon,
   XIcon,
 } from "@phosphor-icons/react";
 
@@ -140,6 +141,8 @@ const ChurchCard = ({
 
   const selectedDay = dayKeys[selectedDayIndex];
   const eventsForDay = selectedDay ? (eventsByDay?.[selectedDay] ?? []) : [];
+
+  const holidayWarningReason = getHolidayWarningReason(churchDetails?.periods);
 
   const getSchedulesForEvent = (event: EventOut) => {
     if (!churchDetails) return [];
@@ -423,6 +426,19 @@ const ChurchCard = ({
                 })}
               </div>
               <div className="rounded-xl bg-paper overflow-hidden divide-y divide-hairline shadow-[0_4px_16px_-6px_rgba(0,0,0,0.25)]">
+                {holidayWarningReason && (
+                  <div className="flex items-center gap-2 px-4 py-2.5 text-[12.5px] font-medium text-warn-amber bg-warn-amber-bg">
+                    <WarningCircleIcon
+                      size={15}
+                      weight="fill"
+                      className="shrink-0"
+                      style={{ color: "#b4690e" }}
+                    />
+                    <span>
+                      Horaires susceptibles de changer {holidayWarningReason}.
+                    </span>
+                  </div>
+                )}
                 {eventsForDay.map((event, i) => {
                   const schedules = getSchedulesForEvent(event);
                   return (
