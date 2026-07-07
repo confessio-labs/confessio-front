@@ -208,3 +208,11 @@ would dilute the signal.
    text, or other Confessio chrome — the color is *attribution*, not styling.
    Today: OClocher uses `#609E2E` on a transparent outlined pill (see
    `ChurchCard.tsx`).
+8. **State colors are a sanctioned, narrow exception to rule #4.** Feedback
+   thumbs already use emerald/rose. The **holiday notice** adds a warm amber
+   (`--color-warn-amber` `#92500c` on `--color-warn-amber-bg` `#fbf1df`,
+   harmonized with paper) for the "Horaires susceptibles de changer pendant
+   {la période}" line at the top of the schedule card (the period is named —
+   e.g. les vacances scolaires, l'été, la Semaine sainte) — a deliberate nod to
+   Google Maps' "Hours might differ" (rule #6). Amber is scoped to that one
+   notice; don't reuse it as a general accent.

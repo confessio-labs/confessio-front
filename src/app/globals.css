@@ -6,6 +6,11 @@
   --color-paper: #f7f4ee;
   --color-hairline: #e7e3db;
   --color-ink: #1b2236;
+  /* State color — holiday-notice only. Deliberate exception to "no new grays/
+     colors" (design.md rule #4), justified by rule #6 (match Google Maps'
+     "Hours might differ"). Warm amber, harmonized with --color-paper. */
+  --color-warn-amber: #92500c;
+  --color-warn-amber-bg: #fbf1df;
   --font-sans:
     var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     Helvetica, Arial, sans-serif;

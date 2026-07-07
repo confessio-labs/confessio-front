@@ -51,6 +51,27 @@ export const computeEventsByDay = (
   return eventsByDay;
 };
 
+// Ordered by priority — the first matching period names the warning reason.
+const HOLIDAY_WARN_PERIODS: {
+  period: components["schemas"]["PeriodEnum"];
+  label: string;
+}[] = [
+  { period: "holy_week", label: "pendant la Semaine sainte" },
+  { period: "advent", label: "pendant l'Avent" },
+  { period: "lent", label: "pendant le Carême" },
+  { period: "summer", label: "pendant l'été" },
+  { period: "school_holidays", label: "pendant les vacances scolaires" },
+];
+
+export const getHolidayWarningReason = (
+  periods: components["schemas"]["PeriodEnum"][] | undefined,
+): string | null => {
+  const active = periods ?? [];
+  return (
+    HOLIDAY_WARN_PERIODS.find((p) => active.includes(p.period))?.label ?? null
+  );
+};
+
 export const fetchChurchesWithWebsites = async ({
   min_lat,
   min_lng,
