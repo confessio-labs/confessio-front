@@ -81,7 +81,7 @@ const NavigationModal = ({
         <p className="text-xs text-gray-300 text-center">
           Code open-source disponible sur{" "}
           <Link
-            href="https://github.com/etiennecallies/confessio"
+            href="https://github.com/confessio-labs"
             className="underline"
           >
             Github
