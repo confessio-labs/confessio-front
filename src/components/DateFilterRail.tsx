@@ -61,7 +61,7 @@ const DateFilterRail = () => {
           onClick={() => setDate(null)}
           className={chipClass(selectedKey === null)}
         >
-          Toutes les dates
+          Tous les jours
         </button>
         {days.map((d, i) => {
           const key = toKey(d);

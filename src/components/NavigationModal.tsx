@@ -61,12 +61,6 @@ const NavigationModal = ({
           </Link>
           <Link
             className="py-2 bg-white text-deepblue w-full text-center md:text-lg"
-            href="https://www.leetchi.com/fr/c/confessio--participation-aux-frais-de-serveur-3379251"
-          >
-            Nous soutenir
-          </Link>
-          <Link
-            className="py-2 bg-white text-deepblue w-full text-center md:text-lg"
             href="https://confessio.fr/api/docs"
           >
             API
