@@ -142,7 +142,9 @@ const ChurchCard = ({
   const selectedDay = dayKeys[selectedDayIndex];
   const eventsForDay = selectedDay ? (eventsByDay?.[selectedDay] ?? []) : [];
 
-  const holidayWarningReason = getHolidayWarningReason(churchDetails?.periods);
+  const holidayWarningReason = getHolidayWarningReason(
+    eventsForDay.flatMap((event) => event.periods ?? []),
+  );
 
   const getSchedulesForEvent = (event: EventOut) => {
     if (!churchDetails) return [];

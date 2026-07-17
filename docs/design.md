@@ -225,5 +225,8 @@ would dilute the signal.
    harmonized with paper) for the "Horaires susceptibles de changer pendant
    {la période}" line at the top of the schedule card (the period is named —
    e.g. les vacances scolaires, l'été, la Semaine sainte) — a deliberate nod to
-   Google Maps' "Hours might differ" (rule #6). Amber is scoped to that one
-   notice; don't reuse it as a general accent.
+   Google Maps' "Hours might differ" (rule #6). The notice is **day-scoped**: it
+   is derived from the selected day's events (`EventOut.periods`), so it appears
+   only on day tabs whose events fall in a holiday period and names the period
+   for that day. Amber is scoped to that one notice; don't reuse it as a general
+   accent.
