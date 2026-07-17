@@ -15,7 +15,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
 import { clearNavigationPending } from "@/lib/navigationLock";
 
-const Map = dynamic(() => import("../../components/Map/Map"), {
+const Map = dynamic(() => import("@/components/Map/Map"), {
   loading: () => (
     <div className="h-screen w-screen flex flex-col gap-4 items-center justify-center">
       <CircleNotchIcon size={40} className="animate-spin text-deepblue" />
