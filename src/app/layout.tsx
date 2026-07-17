@@ -37,12 +37,8 @@ export const viewport = {
 
 export default function RootLayout({
   children,
-  map,
-  modal,
 }: Readonly<{
   children: React.ReactNode;
-  map: React.ReactNode;
-  modal: React.ReactNode;
 }>) {
   return (
     <html lang="fr">
@@ -53,11 +49,7 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_JSONLD) }}
         />
-        <Providers>
-          {children}
-          {modal}
-          {map}
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
