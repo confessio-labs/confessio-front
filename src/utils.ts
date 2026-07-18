@@ -13,6 +13,23 @@ if (MAP_TILER_API_KEY === undefined)
 
 export const MOBILE_BREAKPOINT = 768;
 
+// Anchoring "today" here rather than to the runtime keeps SSR (prod server runs
+// UTC) identical to hydration (French visitors run Paris); a bare `new Date()`
+// diverges across the day boundary and causes hydration mismatches.
+export const APP_TIME_ZONE = "Europe/Paris";
+
+// "YYYY-MM-DD" for today in APP_TIME_ZONE — same instant, same zone on both
+// sides, so server and client agree.
+export const appTodayKey = (): string =>
+  new Date().toLocaleDateString("en-CA", { timeZone: APP_TIME_ZONE });
+
+// "YYYY-MM-DD" from a Date's local fields. Deterministic only for dates built
+// from explicit fields (e.g. `new Date(y, m, d)`), not from parsed instants.
+export const localDateKey = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
+
 export type Bounds = {
   south: number;
   north: number;
