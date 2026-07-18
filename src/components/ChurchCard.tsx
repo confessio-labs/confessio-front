@@ -7,6 +7,7 @@ import ModalSheetDragZone from "./ModalSheet/ModalSheetDragZone";
 import { useSheetRef } from "./ModalSheet/SheetContext";
 import { useKeyboardOverlap } from "@/hooks/useKeyboardOverlap";
 import {
+  APP_TIME_ZONE,
   appTodayKey,
   fetchApi,
   getFrenchTimeString,
@@ -77,6 +78,7 @@ const CommentEntry = ({ node }: { node: CommentNode }) => (
         day: "numeric",
         month: "long",
         year: "numeric",
+        timeZone: APP_TIME_ZONE,
       })}
     </span>
     <p className="text-ink text-[13px] leading-normal whitespace-pre-line [overflow-wrap:anywhere]">
