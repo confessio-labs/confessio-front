@@ -6,7 +6,13 @@ import ModalSheetScroller from "./ModalSheet/ModalSheetScroller";
 import ModalSheetDragZone from "./ModalSheet/ModalSheetDragZone";
 import { useSheetRef } from "./ModalSheet/SheetContext";
 import { useKeyboardOverlap } from "@/hooks/useKeyboardOverlap";
-import { fetchApi, getFrenchTimeString, getHolidayWarningReason } from "@/utils";
+import {
+  appTodayKey,
+  fetchApi,
+  getFrenchTimeString,
+  getHolidayWarningReason,
+  localDateKey,
+} from "@/utils";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import posthog from "posthog-js";
@@ -88,8 +94,7 @@ const CommentEntry = ({ node }: { node: CommentNode }) => (
 
 const formatDayLabel = (dayKey: string) => {
   const date = new Date(dayKey);
-  const today = new Date();
-  const isToday = date.toDateString() === today.toDateString();
+  const isToday = localDateKey(date) === appTodayKey();
   const dayName = isToday
     ? "Aujourd'hui"
     : date
