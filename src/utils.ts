@@ -39,6 +39,12 @@ export type Bounds = {
 
 export const fetchApi = async (url: string, options: RequestInit = {}) => {
   const response = await fetch(`${API_URL}${url}`, options);
+  // fetch() only rejects on network failure, not on HTTP error status, so a
+  // 4xx/5xx would otherwise resolve with the error body parsed as if it were a
+  // success payload. Surface it as a thrown error instead.
+  if (!response.ok) {
+    throw new Error(`API request to ${url} failed (${response.status})`);
+  }
   return response.json();
 };
 

@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import posthog from "posthog-js";
 import {
   ArrowSquareOutIcon,
+  CameraIcon,
   CircleNotchIcon,
   NavigationArrowIcon,
   PaperPlaneTiltIcon,
@@ -203,6 +204,10 @@ const ChurchCard = ({
   const [feedbackText, setFeedbackText] = useState("");
   const [errorType, setErrorType] = useState<ErrorType | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoComment, setPhotoComment] = useState("");
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [portalReady, setPortalReady] = useState(false);
   const lightboxClosedByBackRef = useRef(false);
@@ -258,6 +263,73 @@ const ChurchCard = ({
       setErrorType(null);
     },
   });
+
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(photoFile);
+    setPhotoPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photoFile]);
+
+  const postImage = useMutation({
+    mutationFn: async ({
+      file,
+      comment,
+    }: {
+      file: File;
+      comment: string;
+    }) => {
+      const uuid = churchDetails?.website?.uuid;
+      if (!uuid) throw new Error("missing website uuid");
+      const form = new FormData();
+      form.append("website_uuid", uuid);
+      if (comment.trim()) form.append("comment", comment.trim());
+      form.append("document", file);
+      // Do NOT set Content-Type — the browser sets the multipart boundary.
+      // fetchApi throws on a non-ok response, so a backend 4xx surfaces here.
+      return fetchApi("/images", {
+        method: "POST",
+        body: form,
+      }) as Promise<components["schemas"]["ImageOut"]>;
+    },
+    onSuccess: () => {
+      posthog.capture("image_uploaded", {
+        church_uuid: church.uuid,
+        church_name: church.name,
+      });
+    },
+  });
+
+  const resetPhoto = () => {
+    setPhotoFile(null);
+    setPhotoComment("");
+    setPhotoError(null);
+    postImage.reset();
+    if (photoInputRef.current) photoInputRef.current.value = "";
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Allow re-picking the same file on a later attempt.
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("Veuillez choisir une image.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setPhotoError("Image trop lourde (10 Mo maximum).");
+      return;
+    }
+    setPhotoError(null);
+    postImage.reset();
+    setPhotoComment("");
+    setPhotoFile(file);
+  };
 
   useEffect(() => {
     if (feedbackOpen) textareaRef.current?.focus();
@@ -749,6 +821,125 @@ const ChurchCard = ({
               ))}
             </div>
           )}
+
+          <div className="px-4">
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoSelect}
+            />
+
+            {postImage.isSuccess ? (
+              <div className="bg-paper rounded-xl p-3 flex flex-col items-center gap-2 text-center shadow-[0_2px_8px_-4px_rgba(0,0,0,0.2)]">
+                <SealCheckIcon
+                  size={20}
+                  weight="fill"
+                  className="text-emerald-700"
+                />
+                <p className="text-ink text-[13px] font-medium">
+                  Merci&nbsp;! Votre image a bien été envoyée.
+                </p>
+                <button
+                  type="button"
+                  onClick={resetPhoto}
+                  className="text-deepblue/70 hover:text-deepblue text-[13px] px-2 py-1 transition-colors"
+                >
+                  Ajouter une autre image
+                </button>
+              </div>
+            ) : photoFile ? (
+              <div className="bg-paper rounded-xl p-3 flex flex-col gap-2 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.2)]">
+                <div className="flex gap-3">
+                  {photoPreviewUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photoPreviewUrl}
+                      alt="Aperçu"
+                      className="w-20 h-20 object-cover rounded-lg shrink-0"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={resetPhoto}
+                    disabled={postImage.isPending}
+                    aria-label="Retirer l'image"
+                    className="self-start w-7 h-7 rounded-full bg-ink/5 hover:bg-ink/10 flex items-center justify-center transition-colors disabled:opacity-50"
+                  >
+                    <XIcon size={14} weight="bold" className="text-ink/70" />
+                  </button>
+                </div>
+                <textarea
+                  value={photoComment}
+                  onChange={(e) => setPhotoComment(e.target.value)}
+                  placeholder="Un commentaire ? (optionnel)"
+                  rows={2}
+                  disabled={postImage.isPending}
+                  // Keep mobile font-size >= 16px: iOS Safari force-zooms into inputs below 16px. Do not lower.
+                  className="w-full resize-none text-ink text-[16px] md:text-[13px] leading-normal placeholder:text-ink/40 bg-transparent focus:outline-none disabled:opacity-60"
+                />
+                {postImage.isError && (
+                  <p className="text-rose-600 text-[12px]">
+                    Erreur lors de l&apos;envoi. Réessayez.
+                  </p>
+                )}
+                <div className="flex justify-end gap-2 items-center">
+                  <button
+                    type="button"
+                    onClick={resetPhoto}
+                    disabled={postImage.isPending}
+                    className="text-deepblue/60 hover:text-deepblue text-[13px] px-2 py-1 transition-colors disabled:opacity-50"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      postImage.mutate({
+                        file: photoFile,
+                        comment: photoComment,
+                      })
+                    }
+                    disabled={postImage.isPending}
+                    className="inline-flex items-center gap-1.5 bg-deepblue text-white text-[13px] font-semibold rounded-full px-3.5 py-1.5 hover:bg-deepblue/90 transition-colors disabled:opacity-60"
+                  >
+                    {postImage.isPending ? (
+                      <CircleNotchIcon
+                        size={14}
+                        weight="bold"
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <PaperPlaneTiltIcon size={14} weight="fill" />
+                    )}
+                    Envoyer
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  disabled={!canReport}
+                  onClick={() => {
+                    posthog.capture("contribution_link_clicked", {
+                      church_uuid: church.uuid,
+                      church_name: church.name,
+                    });
+                    photoInputRef.current?.click();
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 rounded-full border bg-white/7 border-white/14 text-white/90 hover:bg-white/12 text-[13px] font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white/7"
+                >
+                  <CameraIcon size={16} className="shrink-0 text-white/70" />
+                  Ajouter une photo des horaires
+                </button>
+                {photoError && (
+                  <p className="text-rose-300 text-[12px]">{photoError}</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </ModalSheetScroller>
       {portalReady &&
