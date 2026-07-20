@@ -742,6 +742,22 @@ const ChurchCard = ({
               ))}
             </div>
           )}
+
+          <div className="text-center px-4">
+            <Link
+              href={`https://confessio.fr/paroisse/${churchDetails?.website?.uuid}#feedbackForm`}
+              target="_blank"
+              className="inline-block underline underline-offset-4 decoration-white/30 hover:decoration-white/70 text-white/75 hover:text-white text-[13px] transition-colors"
+              onClick={() =>
+                posthog.capture("contribution_link_clicked", {
+                  church_uuid: church.uuid,
+                  church_name: church.name,
+                })
+              }
+            >
+              Ajouter une image des horaires de confession
+            </Link>
+          </div>
         </div>
       </ModalSheetScroller>
       {portalReady &&
