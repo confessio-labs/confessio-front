@@ -349,6 +349,8 @@ export interface components {
             longitude?: number | null;
             /** Uuid */
             uuid?: string | null;
+            /** Church Uuid */
+            church_uuid?: string | null;
         };
         /** AutocompleteHitIn */
         AutocompleteHitIn: {

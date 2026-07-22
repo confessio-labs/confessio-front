@@ -78,6 +78,24 @@ export const SearchInput = ({
     },
     [map],
   );
+
+  // A church result carries its uuid directly; other results (e.g. parishes)
+  // may point at a church via church_uuid. When present, clicking behaves as
+  // if the user had clicked the church itself.
+  const churchUuidOf = (item: components["schemas"]["AutocompleteItem"]) =>
+    item.type === "church" ? item.uuid : item.church_uuid;
+
+  const navigateToChurch = useCallback(
+    (uuid: string, item: components["schemas"]["AutocompleteItem"]) => {
+      inputRef.current?.blur();
+      const params = new URLSearchParams(window.location.search);
+      if (item.latitude && item.longitude) {
+        params.set("center", `${item.latitude},${item.longitude}`);
+      }
+      router.push(`/church/${uuid}?${params.toString()}`);
+    },
+    [router],
+  );
   const onInputChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
@@ -97,17 +115,13 @@ export const SearchInput = ({
   const selectFirstResult = useCallback(() => {
     const first = data[0];
     if (!first) return;
-    if (first.type === "church" && first.uuid) {
-      inputRef.current?.blur();
-      const params = new URLSearchParams(window.location.search);
-      if (first.latitude && first.longitude) {
-        params.set("center", `${first.latitude},${first.longitude}`);
-      }
-      router.push(`/church/${first.uuid}?${params.toString()}`);
+    const churchUuid = churchUuidOf(first);
+    if (churchUuid) {
+      navigateToChurch(churchUuid, first);
     } else {
       onClick(first)();
     }
-  }, [data, router, onClick]);
+  }, [data, navigateToChurch, onClick]);
 
   const hasResults = searchQuery.length > 0 && (data.length > 0 || isLoading);
 
@@ -237,31 +251,20 @@ export const SearchInput = ({
               );
               const className =
                 "w-full text-left px-2 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center hover:bg-paper gap-2.5";
+              const churchUuid = churchUuidOf(item);
               return (
                 <li key={index} className="p-2">
-                  {item.type === "church" && item.uuid ? (
+                  {churchUuid ? (
                     <button
                       onPointerDown={(e) => e.preventDefault()}
                       onClick={() => {
                         posthog.capture("search_result_selected", {
                           result_type: item.type,
                           result_name: item.name,
-                          result_uuid: item.uuid,
+                          result_uuid: churchUuid,
                           query: searchQuery,
                         });
-                        inputRef.current?.blur();
-                        const params = new URLSearchParams(
-                          window.location.search,
-                        );
-                        if (item.latitude && item.longitude) {
-                          params.set(
-                            "center",
-                            `${item.latitude},${item.longitude}`,
-                          );
-                        }
-                        router.push(
-                          `/church/${item.uuid}?${params.toString()}`,
-                        );
+                        navigateToChurch(churchUuid, item);
                       }}
                       className={className}
                     >
