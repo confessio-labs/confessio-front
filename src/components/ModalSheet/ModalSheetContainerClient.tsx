@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { Sheet, SheetRef } from "react-modal-sheet";
 import { SheetRefContext } from "./SheetContext";
@@ -14,22 +14,6 @@ function ModalSheetContainerClient({
   const sheetRef = useRef<SheetRef>(null);
   const pathname = usePathname();
   const prevPathnameRef = useRef<string | null>(null);
-
-  // The sheet mounts only after hydration (useIsMobile flips), replacing the
-  // server-painted card — suppress the entrance tween so it appears directly
-  // at the bottom snap instead of sliding up from the screen edge.
-  const [entranceDone, setEntranceDone] = useState(false);
-  useEffect(() => {
-    setEntranceDone(true);
-  }, []);
-
-  // A church deep link then rises to half like any church navigation — but
-  // only after the entranceDone re-render restored the normal tween config.
-  useEffect(() => {
-    if (!entranceDone) return;
-    if (prevPathnameRef.current?.startsWith("/church/"))
-      sheetRef.current?.snapTo(1);
-  }, [entranceDone]);
 
   // The sheet persists across navigations (mounted in the (map) group layout),
   // so snap points never reset via remount — set them per transition instead.
@@ -76,8 +60,7 @@ function ModalSheetContainerClient({
       isOpen
       ref={sheetRef}
       snapPoints={SNAP_POINTS}
-      initialSnap={2}
-      prefersReducedMotion={!entranceDone}
+      initialSnap={pathname.startsWith("/church/") ? 1 : 2}
       tweenConfig={{ ease: "easeOut", duration: 0.3 }}
       dragCloseThreshold={1}
       onClose={() => sheetRef.current?.snapTo(2)}
