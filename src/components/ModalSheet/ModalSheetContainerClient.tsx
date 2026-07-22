@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { useAtomValue } from "jotai";
 import { Sheet, SheetRef } from "react-modal-sheet";
 import { SheetRefContext } from "./SheetContext";
+import { optimisticChurchAtom } from "@/atoms";
 
 const SNAP_POINTS: number[] = [0.9, 0.5, 140];
 const BOTTOM_SNAP_PX = 140;
@@ -14,6 +16,7 @@ function ModalSheetContainerClient({
   const sheetRef = useRef<SheetRef>(null);
   const pathname = usePathname();
   const prevPathnameRef = useRef<string | null>(null);
+  const optimisticChurch = useAtomValue(optimisticChurchAtom);
 
   // The sheet persists across navigations (mounted in the (map) group layout),
   // so snap points never reset via remount — set them per transition instead.
@@ -24,6 +27,13 @@ function ModalSheetContainerClient({
     if (pathname.startsWith("/church/")) sheetRef.current?.snapTo(1);
     else sheetRef.current?.snapTo(2);
   }, [pathname]);
+
+  // Snap up as soon as a church is opened optimistically, before the URL
+  // commits — otherwise the card content appears instantly but the sheet
+  // slides up only a beat later (on the pathname change above).
+  useEffect(() => {
+    if (optimisticChurch) sheetRef.current?.snapTo(1);
+  }, [optimisticChurch]);
 
   // Hard-stop at the bottom snap point during drag.
   // The library only constrains the TOP snap in onDrag; the bottom is

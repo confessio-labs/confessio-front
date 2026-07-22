@@ -55,6 +55,30 @@ export type AggregatedSearchResults = {
   })[];
 };
 
+// Builds a partial ChurchDetails from a search-result summary so the church
+// card can render instantly (name, address, day tabs, event times) before the
+// full record arrives. Fields the summary lacks (website reports, schedule
+// explanations, source parsings) are left empty; ChurchCard optional-chains
+// all of them, so they simply appear once the real fetch resolves. The
+// `schedules` key must be present so ChurchCard's `"schedules" in church`
+// guard treats this as valid initialData.
+export const summaryToCard = (
+  church: AggregatedSearchResults["churches"][number],
+): components["schemas"]["ChurchDetails"] => ({
+  uuid: church.uuid,
+  name: church.name,
+  latitude: church.latitude,
+  longitude: church.longitude,
+  address: church.address,
+  zipcode: church.zipcode,
+  city: church.city,
+  events: church.events,
+  website: null as unknown as components["schemas"]["WebsiteOut"],
+  schedules: [],
+  parsings: [],
+  periods: [],
+});
+
 export const computeEventsByDay = (
   events: components["schemas"]["EventOut"][],
 ): Record<string, components["schemas"]["EventOut"][]> => {

@@ -49,6 +49,14 @@ const ERROR_TYPE_LABELS: Record<ErrorType, string> = {
 
 const URL_REGEX = /(https?:\/\/[^\s]+)/g;
 
+// Opening a church optimistically renders a summary card, then hands off to
+// the server-rendered card for the same church — which remounts ChurchCard.
+// Track the last church we captured a view for (module-level, survives the
+// remount) so that handoff counts as one view, not two. A different church,
+// or re-opening one after viewing another, still captures normally; only a
+// consecutive re-mount for the same uuid is suppressed.
+let lastViewedChurchUuid: string | null = null;
+
 const renderCommentBody = (raw: string) => {
   const text = raw.replace(/\\r\\n|\\r|\\n/g, "\n");
   return text.split(URL_REGEX).map((part, i) => {
@@ -381,17 +389,25 @@ const ChurchCard = ({
 
   const canReport = Boolean(churchDetails?.website?.uuid);
 
+  // True while showing the optimistic summary card (built by summaryToCard,
+  // which has no website record) before the full record arrives. Drives
+  // skeletons for the parts the summary lacks so nothing shifts on load.
+  const isSummary = Boolean(churchDetails) && churchDetails?.website == null;
+
   const searchParams = useSearchParams();
   const query = searchParams.toString();
 
   useEffect(() => {
     const prev = document.title;
     document.title = `${church.name} — Confessio`;
-    posthog.capture("church_viewed", {
-      church_uuid: church.uuid,
-      church_name: church.name,
-      church_city: church.city,
-    });
+    if (lastViewedChurchUuid !== church.uuid) {
+      lastViewedChurchUuid = church.uuid;
+      posthog.capture("church_viewed", {
+        church_uuid: church.uuid,
+        church_name: church.name,
+        church_city: church.city,
+      });
+    }
     return () => {
       document.title = prev;
     };
@@ -439,28 +455,38 @@ const ChurchCard = ({
       </ModalSheetDragZone>
 
       <ModalSheetScroller draggableAt="top">
-        {churchDetails?.website?.home_url && (
+        {isSummary ? (
           <div className="px-5 pt-3 pb-1 flex">
-            <Link
-              href={churchDetails.website.home_url}
-              target="_blank"
-              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-white/75 hover:text-white transition-colors"
-              onClick={() =>
-                posthog.capture("parish_website_clicked", {
-                  church_uuid: church.uuid,
-                  church_name: church.name,
-                  parish_url: churchDetails.website?.home_url,
-                })
-              }
-            >
-              <span>Paroisse de {church.name}</span>
-              <ArrowSquareOutIcon
-                size={13}
-                weight="bold"
-                className="shrink-0"
-              />
-            </Link>
+            {/* Same text + classes as the real link so the height (and width)
+                match exactly — no shift when the link replaces it. */}
+            <span className="inline-flex items-center gap-1.5 text-[12px] font-medium rounded-full bg-white/12 text-transparent select-none motion-safe:animate-pulse">
+              Paroisse de {church.name}
+            </span>
           </div>
+        ) : (
+          churchDetails?.website?.home_url && (
+            <div className="px-5 pt-3 pb-1 flex">
+              <Link
+                href={churchDetails.website.home_url}
+                target="_blank"
+                className="inline-flex items-center gap-1.5 text-[12px] font-medium text-white/75 hover:text-white transition-colors"
+                onClick={() =>
+                  posthog.capture("parish_website_clicked", {
+                    church_uuid: church.uuid,
+                    church_name: church.name,
+                    parish_url: churchDetails.website?.home_url,
+                  })
+                }
+              >
+                <span>Paroisse de {church.name}</span>
+                <ArrowSquareOutIcon
+                  size={13}
+                  weight="bold"
+                  className="shrink-0"
+                />
+              </Link>
+            </div>
+          )
         )}
         <div className="pb-6 pt-2">
           {isLoading && (
@@ -533,6 +559,18 @@ const ChurchCard = ({
                           {formatTimeRange(event)}
                         </span>
                       </div>
+                      {schedules.length === 0 &&
+                        isSummary &&
+                        event.schedules_indices.length > 0 && (
+                          <div className="flex flex-col gap-2.5">
+                            {event.schedules_indices.map((_, j) => (
+                              <div key={j} className="flex flex-col gap-1.5">
+                                <div className="h-3 rounded bg-ink/10 motion-safe:animate-pulse" />
+                                <div className="h-3 w-3/5 rounded bg-ink/10 motion-safe:animate-pulse" />
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       {schedules.length > 0 && (
                         <div className="flex flex-col gap-1.5 text-[13px] leading-relaxed text-ink/70">
                           {schedules.map((s, j) => {
