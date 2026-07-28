@@ -46,5 +46,10 @@
     "openapi-typescript": "^7.9.1",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "react-modal-sheet@4.4.0": "patches/react-modal-sheet@4.4.0.patch"
+    }
   }
 }
