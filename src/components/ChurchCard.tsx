@@ -205,6 +205,24 @@ const ChurchCard = ({
     };
   }, [churchDetails?.website?.reports]);
 
+  // Parish-level images (scraped source shots and visitor uploads share one
+  // list — `ImageOut` carries no provenance field, so they render identically).
+  // An image that is also a parsing source already appears as the per-schedule
+  // thumbnail below its explanation, where it carries the schedule ↔ source
+  // link; showing it again here would just duplicate it. Matching against every
+  // parsing rather than only the selected day's keeps this stable across day
+  // tabs — otherwise the card would pop in and out as the user switches days.
+  const websiteImages = useMemo(() => {
+    const images = churchDetails?.website?.images ?? [];
+    if (images.length === 0) return images;
+    const sourceImageUrls = new Set(
+      (churchDetails?.parsings ?? [])
+        .map((p) => p.image_url)
+        .filter((url): url is string => !!url),
+    );
+    return images.filter((image) => !sourceImageUrls.has(image.public_url));
+  }, [churchDetails?.website?.images, churchDetails?.parsings]);
+
   const queryClient = useQueryClient();
   const [feedbackOpen, setFeedbackOpen] = useState<"good" | "error" | null>(
     null,
@@ -305,6 +323,9 @@ const ChurchCard = ({
       }) as Promise<components["schemas"]["ImageOut"]>;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["churchDetails", church.uuid],
+      });
       posthog.capture("image_uploaded", {
         church_uuid: church.uuid,
         church_name: church.name,
@@ -855,6 +876,48 @@ const ChurchCard = ({
                     />
                   )}
                   <CommentEntry node={c} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {websiteImages.length > 0 && (
+            <div className="px-4 pb-4 flex flex-col gap-2">
+              {websiteImages.map((image) => (
+                <div
+                  key={image.image_uuid}
+                  className="bg-paper rounded-xl p-3 flex flex-col gap-2 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.2)]"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLightboxUrl(image.public_url);
+                      posthog.capture("website_image_opened", {
+                        church_uuid: church.uuid,
+                        url: image.public_url,
+                      });
+                    }}
+                    aria-label="Agrandir l'image"
+                    className="block w-full rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={image.public_url}
+                      // The comment renders as visible text right below, so
+                      // repeating it here would read it twice to a screen
+                      // reader — and it describes provenance, not content.
+                      alt="Photo des horaires"
+                      loading="lazy"
+                      // object-contain, never cover: these are photos of
+                      // schedule boards, so cropping would eat the text.
+                      className="w-full h-auto max-h-[280px] object-contain"
+                    />
+                  </button>
+                  {image.comment && (
+                    <p className="text-ink/70 text-[12px] leading-normal whitespace-pre-line [overflow-wrap:anywhere]">
+                      {renderCommentBody(image.comment)}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

@@ -88,7 +88,6 @@ export const summaryToCard = (
   website: null as unknown as components["schemas"]["WebsiteOut"],
   schedules: [],
   parsings: [],
-  periods: [],
 });
 
 export const computeEventsByDay = (
