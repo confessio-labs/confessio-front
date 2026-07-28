@@ -1,4 +1,6 @@
 import { components } from "@/types";
+import { type AutocompleteResults, fetchApi } from "@/utils";
+import { useMutation } from "@tanstack/react-query";
 import clsx from "clsx";
 import { Map } from "leaflet";
 import Image from "next/image";
@@ -29,17 +31,18 @@ const mapItemTypeToIcon: Record<string, Icon> = {
 
 export const SearchInput = ({
   map,
-  data,
+  results,
   isLoading,
   searchQuery,
   setSearchQuery,
 }: {
   map: Map | null;
-  data: components["schemas"]["AutocompleteItem"][];
+  results: AutocompleteResults;
   isLoading: boolean;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }) => {
+  const data = results.items;
   const [isFocused, setIsFocused] = useAtom(isSearchFocusedAtom);
   const router = useMapRouter();
   const pathname = usePathname();
@@ -67,6 +70,37 @@ export const SearchInput = ({
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, [isFocused, closeSearch]);
+
+  // Ranking telemetry: every pick reports which item was chosen, at which rank,
+  // for the query and map center the list was ranked under. Feeds the tuning of
+  // the autocomplete arbitration (string match vs distance vs popularity).
+  // The query/center come from `results` — the snapshot taken when the request
+  // was issued — never from `searchQuery` or `map.getCenter()` at click time,
+  // which drift from the list the user actually saw (and from `map.setView`).
+  // Reported from every environment: `API_URL` is prod everywhere, so picks made
+  // in dev or on a test host land in the same dataset — accepted as negligible
+  // noise, and it keeps the path exercisable outside prod.
+  const { mutate: postHit } = useMutation({
+    mutationFn: async (payload: components["schemas"]["AutocompleteHitIn"]) =>
+      fetchApi("/autocomplete/hits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }),
+  });
+
+  const reportHit = useCallback(
+    (item: components["schemas"]["AutocompleteItem"], rank: number) => {
+      postHit({
+        query: results.query,
+        latitude: results.latitude,
+        longitude: results.longitude,
+        rank,
+        item,
+      });
+    },
+    [postHit, results],
+  );
 
   const onClick = useCallback(
     (item: components["schemas"]["AutocompleteItem"]) => () => {
@@ -115,13 +149,15 @@ export const SearchInput = ({
   const selectFirstResult = useCallback(() => {
     const first = data[0];
     if (!first) return;
+    // Enter picks the top result, so it reports as a hit at rank 0.
+    reportHit(first, 0);
     const churchUuid = churchUuidOf(first);
     if (churchUuid) {
       navigateToChurch(churchUuid, first);
     } else {
       onClick(first)();
     }
-  }, [data, navigateToChurch, onClick]);
+  }, [data, navigateToChurch, onClick, reportHit]);
 
   const hasResults = searchQuery.length > 0 && (data.length > 0 || isLoading);
 
@@ -264,6 +300,7 @@ export const SearchInput = ({
                           result_uuid: churchUuid,
                           query: searchQuery,
                         });
+                        reportHit(item, index);
                         navigateToChurch(churchUuid, item);
                       }}
                       className={className}
@@ -279,6 +316,7 @@ export const SearchInput = ({
                           result_name: item.name,
                           query: searchQuery,
                         });
+                        reportHit(item, index);
                         onClick(item)();
                       }}
                       className={className}

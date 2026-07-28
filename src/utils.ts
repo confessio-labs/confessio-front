@@ -48,6 +48,18 @@ export const fetchApi = async (url: string, options: RequestInit = {}) => {
   return response.json();
 };
 
+// Autocomplete results bundled with the request that produced them. Clicking a
+// result reports a "hit" carrying that exact (query, map center) tuple: the
+// query key omits the center, and `placeholderData` keeps the previous items on
+// screen while a newer query is in flight, so neither can be re-read at click
+// time without drifting from the list the user actually saw.
+export type AutocompleteResults = {
+  query: string;
+  latitude: number | null;
+  longitude: number | null;
+  items: components["schemas"]["AutocompleteItem"][];
+};
+
 export type AggregatedSearchResults = {
   aggregations: components["schemas"]["SearchResultOut"]["aggregations"];
   churches: (components["schemas"]["SearchResultOut"]["churches"][number] & {
