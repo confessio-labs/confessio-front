@@ -5,6 +5,9 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.15.5 --activate
 COPY package.json pnpm-lock.yaml ./
+# pnpm hashes the files in patchedDependencies during install, so they must be
+# present before `pnpm install` — not just in the builder stage's `COPY . .`.
+COPY patches ./patches
 RUN --mount=type=cache,target=/pnpm-store \
     pnpm config set store-dir /pnpm-store \
  && pnpm config set fetch-timeout 600000 \
