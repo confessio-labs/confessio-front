@@ -1,21 +1,51 @@
-import { AggregatedSearchResults, getChurchMarkerLabel } from "@/utils";
+import {
+  AggregatedSearchResults,
+  getChurchMarkerLabel,
+  summaryToCard,
+} from "@/utils";
 import L, { Map, Marker as LeafletMarker } from "leaflet";
 import { useEffect, useRef } from "react";
+import { useSetAtom } from "jotai";
+import { useQueryClient } from "@tanstack/react-query";
+import { optimisticChurchAtom } from "@/atoms";
 import { useMapRouter } from "@/hooks/useMapRouter";
 import { useDateFilter } from "@/hooks/useDateFilter";
 
 export const ChurchMarker = ({
   map,
-  church: { uuid, latitude, longitude, eventsByDay },
+  church,
   selected,
 }: {
   map: Map;
   church: AggregatedSearchResults["churches"][number];
   selected: boolean;
 }) => {
+  const { uuid, latitude, longitude, eventsByDay } = church;
   const router = useMapRouter();
+  const setOptimisticChurch = useSetAtom(optimisticChurchAtom);
+  const queryClient = useQueryClient();
   const markerRef = useRef<LeafletMarker | null>(null);
   const { date } = useDateFilter();
+
+  // Open the church optimistically: seed the query cache and the optimistic
+  // atom from the summary we already have so the sheet renders instantly,
+  // then navigate so the server @modal slot loads the full record and takes
+  // over on commit. Called through a ref so the marker-creation effect below
+  // keeps stable deps (it must not re-run when `church` identity changes).
+  const openRef = useRef<() => void>(() => {});
+  openRef.current = () => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("center", `${latitude},${longitude}`);
+    // Skip the optimistic swap if this church is already open — the URL
+    // wouldn't change, so the atom would never be cleared (it clears on the
+    // next committed navigation), stranding the sheet on the summary card.
+    if (window.location.pathname !== `/church/${uuid}`) {
+      const card = summaryToCard(church);
+      queryClient.setQueryData(["churchDetails", uuid], card);
+      setOptimisticChurch(card);
+    }
+    router.push(`/church/${uuid}?${params.toString()}`);
+  };
 
   const firstEventStart = Object.values(eventsByDay || {})?.[0]?.[0]?.start;
 
@@ -39,11 +69,7 @@ export const ChurchMarker = ({
         zIndexOffset: selected ? 1000 : 0,
       })
         .addTo(map)
-        .on("click", () => {
-          const params = new URLSearchParams(window.location.search);
-          params.set("center", `${latitude},${longitude}`);
-          router.push(`/church/${uuid}?${params.toString()}`);
-        });
+        .on("click", () => openRef.current());
     } else {
       const markerClass = selected ? "church-marker-selected" : "church-marker";
       marker = L.marker([latitude, longitude], {
@@ -59,18 +85,14 @@ export const ChurchMarker = ({
         zIndexOffset: selected ? 1000 : 0,
       })
         .addTo(map)
-        .on("click", () => {
-          const params = new URLSearchParams(window.location.search);
-          params.set("center", `${latitude},${longitude}`);
-          router.push(`/church/${uuid}?${params.toString()}`);
-        });
+        .on("click", () => openRef.current());
     }
 
     markerRef.current = marker;
     return () => {
       marker.remove();
     };
-  }, [map, router, uuid, latitude, longitude, timeLabel, selected]);
+  }, [map, latitude, longitude, timeLabel, selected]);
 
   useEffect(() => {
     if (!markerRef.current) return;

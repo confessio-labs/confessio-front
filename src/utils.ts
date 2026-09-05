@@ -13,6 +13,23 @@ if (MAP_TILER_API_KEY === undefined)
 
 export const MOBILE_BREAKPOINT = 768;
 
+// Anchoring "today" here rather than to the runtime keeps SSR (prod server runs
+// UTC) identical to hydration (French visitors run Paris); a bare `new Date()`
+// diverges across the day boundary and causes hydration mismatches.
+export const APP_TIME_ZONE = "Europe/Paris";
+
+// "YYYY-MM-DD" for today in APP_TIME_ZONE — same instant, same zone on both
+// sides, so server and client agree.
+export const appTodayKey = (): string =>
+  new Date().toLocaleDateString("en-CA", { timeZone: APP_TIME_ZONE });
+
+// "YYYY-MM-DD" from a Date's local fields. Deterministic only for dates built
+// from explicit fields (e.g. `new Date(y, m, d)`), not from parsed instants.
+export const localDateKey = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
+
 export type Bounds = {
   south: number;
   north: number;
@@ -22,7 +39,25 @@ export type Bounds = {
 
 export const fetchApi = async (url: string, options: RequestInit = {}) => {
   const response = await fetch(`${API_URL}${url}`, options);
+  // fetch() only rejects on network failure, not on HTTP error status, so a
+  // 4xx/5xx would otherwise resolve with the error body parsed as if it were a
+  // success payload. Surface it as a thrown error instead.
+  if (!response.ok) {
+    throw new Error(`API request to ${url} failed (${response.status})`);
+  }
   return response.json();
+};
+
+// Autocomplete results bundled with the request that produced them. Clicking a
+// result reports a "hit" carrying that exact (query, map center) tuple: the
+// query key omits the center, and `placeholderData` keeps the previous items on
+// screen while a newer query is in flight, so neither can be re-read at click
+// time without drifting from the list the user actually saw.
+export type AutocompleteResults = {
+  query: string;
+  latitude: number | null;
+  longitude: number | null;
+  items: components["schemas"]["AutocompleteItem"][];
 };
 
 export type AggregatedSearchResults = {
@@ -31,6 +66,29 @@ export type AggregatedSearchResults = {
     eventsByDay?: Record<string, components["schemas"]["EventOut"][]>;
   })[];
 };
+
+// Builds a partial ChurchDetails from a search-result summary so the church
+// card can render instantly (name, address, day tabs, event times) before the
+// full record arrives. Fields the summary lacks (website reports, schedule
+// explanations, source parsings) are left empty; ChurchCard optional-chains
+// all of them, so they simply appear once the real fetch resolves. The
+// `schedules` key must be present so ChurchCard's `"schedules" in church`
+// guard treats this as valid initialData.
+export const summaryToCard = (
+  church: AggregatedSearchResults["churches"][number],
+): components["schemas"]["ChurchDetails"] => ({
+  uuid: church.uuid,
+  name: church.name,
+  latitude: church.latitude,
+  longitude: church.longitude,
+  address: church.address,
+  zipcode: church.zipcode,
+  city: church.city,
+  events: church.events,
+  website: null as unknown as components["schemas"]["WebsiteOut"],
+  schedules: [],
+  parsings: [],
+});
 
 export const computeEventsByDay = (
   events: components["schemas"]["EventOut"][],

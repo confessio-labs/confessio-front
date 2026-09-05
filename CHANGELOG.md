@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-05
+
+### Added
+
+- Schedule photos can now be uploaded directly from the church card: pick a
+  photo, preview it, add an optional comment, send. Replaces the link that
+  sent people off to confessio.fr to contribute.
+- Parish images now appear on the church card, below the schedules. Images
+  that are already a parsing source stay with their schedule instead of
+  being repeated.
+- Link to the Android app in the navigation modal.
+- Search results for a parish that maps to a single church now open that
+  church's detail page, like a church result does.
+
+### Changed
+
+- The church card renders the moment you tap a pin, instead of waiting for
+  the server — name, address, day tabs and times come from what's already on
+  the map, and the full record fills in behind it without shifting the layout.
+- Map labels are in French: "Nouvelle-Aquitaine" and "Dunkerque" rather than
+  the style's English defaults.
+- The bottom sheet animates in on first paint, and its opening position is
+  derived from the route — a church link opens half-open, everything else
+  opens at the peek.
+
+### Fixed
+
+- The bottom sheet can be dragged by the body of a card again, not just its
+  header. A scroll lock from one card was leaking into the next and killing
+  the gesture on cards with nothing to scroll.
+- Dates no longer flip by a day between server and browser late in the
+  evening: "today" and comment dates are both anchored to Europe/Paris,
+  where the schedules actually are.
+- Failed API calls now surface as errors instead of resolving silently with
+  the error body as their payload — which had been breaking the upload error
+  path and putting garbage in church page metadata.
+- The Docker image builds again; the dependency patch added this release
+  wasn't reaching the install step.
+
 ## [1.0.3] - 2026-07-18
 
 ### Changed

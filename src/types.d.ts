@@ -268,14 +268,24 @@ export interface components {
             schedules: components["schemas"]["ScheduleOut"][];
             /** Parsings */
             parsings: components["schemas"]["ParsingOut"][];
-            /** Periods */
-            periods: components["schemas"]["PeriodEnum"][];
         };
         /**
          * FeedbackTypeEnum
          * @enum {string}
          */
         FeedbackTypeEnum: "good" | "error" | "comment";
+        /** ImageOut */
+        ImageOut: {
+            /**
+             * Image Uuid
+             * Format: uuid
+             */
+            image_uuid: string;
+            /** Public Url */
+            public_url: string;
+            /** Comment */
+            comment: string | null;
+        };
         /** ParsingOut */
         ParsingOut: {
             /**
@@ -332,6 +342,8 @@ export interface components {
             home_url: string;
             /** Reports */
             reports: components["schemas"]["ReportOut"][];
+            /** Images */
+            images: components["schemas"]["ImageOut"][];
         };
         /** AutocompleteItem */
         AutocompleteItem: {
@@ -349,6 +361,8 @@ export interface components {
             longitude?: number | null;
             /** Uuid */
             uuid?: string | null;
+            /** Church Uuid */
+            church_uuid?: string | null;
         };
         /** AutocompleteHitIn */
         AutocompleteHitIn: {
@@ -400,16 +414,6 @@ export interface components {
             error_type?: components["schemas"]["ErrorTypeEnum"] | null;
             /** Comment */
             comment?: string | null;
-        };
-        /** ImageOut */
-        ImageOut: {
-            /**
-             * Image Uuid
-             * Format: uuid
-             */
-            image_uuid: string;
-            /** Public Url */
-            public_url: string;
         };
     };
     responses: never;

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { useDateFilter } from "@/hooks/useDateFilter";
+import { appTodayKey } from "@/utils";
 
 const WEEKDAYS = ["Dim.", "Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam."];
 const MONTHS = [
@@ -34,14 +35,17 @@ const DateFilterRail = () => {
   const selectedKey = date ? date.toISOString().split("T")[0] : null;
   const activeRef = useRef<HTMLButtonElement | null>(null);
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const [ty, tm, td] = appTodayKey().split("-").map(Number) as [
+    number,
+    number,
+    number,
+  ];
+  const todayMonth = tm - 1;
 
-  const days = Array.from({ length: DAYS }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    return d;
-  });
+  const days = Array.from(
+    { length: DAYS },
+    (_, i) => new Date(ty, todayMonth, td + i),
+  );
 
   useEffect(() => {
     if (selectedKey)
@@ -66,7 +70,7 @@ const DateFilterRail = () => {
         {days.map((d, i) => {
           const key = toKey(d);
           const active = selectedKey === key;
-          const crossesMonth = d.getMonth() !== today.getMonth();
+          const crossesMonth = d.getMonth() !== todayMonth;
           return (
             <button
               key={key}
