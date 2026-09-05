@@ -14,6 +14,7 @@
     "format": "prettier --write .",
     "test:seo": "next build && playwright test",
     "test:seo:only": "playwright test",
+    "test:ui": "playwright test tests/ui.spec.ts",
     "pull-types": "openapi-typescript https://confessio.fr/front/api/openapi.json -o src/types.d.ts"
   },
   "dependencies": {
