@@ -66,10 +66,18 @@ const NavigationModal = ({
             API
           </Link>
           <Link
-            className="py-2 bg-white text-deepblue w-full text-center rounded-b-xl md:text-lg"
+            className="py-2 bg-white text-deepblue w-full text-center md:text-lg"
             href="https://confessio.fr/accounts/login/"
           >
             Espace Administrateur
+          </Link>
+          <Link
+            className="py-2 bg-white text-deepblue w-full text-center rounded-b-xl md:text-lg"
+            href="https://play.google.com/store/apps/details?id=com.hdgdev.confession"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Télécharger l&apos;application Android
           </Link>
         </div>
         <p className="text-xs text-gray-300 text-center">

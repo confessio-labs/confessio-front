@@ -2,8 +2,12 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { SearchInput } from "@/components/SearchInput";
-import { components } from "@/types";
-import { type Bounds, fetchApi, parseBoundsParam } from "@/utils";
+import {
+  type AutocompleteResults,
+  type Bounds,
+  fetchApi,
+  parseBoundsParam,
+} from "@/utils";
 import { useEffect, useState } from "react";
 import { useDebounce } from "use-debounce";
 import { Map as LeafletMap } from "leaflet";
@@ -24,6 +28,14 @@ const Map = dynamic(() => import("@/components/Map/Map"), {
   ),
   ssr: false,
 });
+
+// Stands in until the first autocomplete query settles.
+const EMPTY_AUTOCOMPLETE_RESULTS: AutocompleteResults = {
+  query: "",
+  latitude: null,
+  longitude: null,
+  items: [],
+};
 
 export function HomePage({
   serverBounds,
@@ -53,18 +65,19 @@ export function HomePage({
 
   const mapCenter = map?.getCenter();
 
-  const { data, isLoading, isFetching } = useQuery<
-    components["schemas"]["AutocompleteItem"][]
-  >({
+  const { data, isLoading, isFetching } = useQuery<AutocompleteResults>({
     queryKey: ["mapData", debouncedSearchQuery],
     queryFn: async () => {
-      if (debouncedSearchQuery.length === 0) return Promise.resolve([]);
+      const latitude = mapCenter?.lat ?? null;
+      const longitude = mapCenter?.lng ?? null;
+      const request = { query: debouncedSearchQuery, latitude, longitude };
+      if (debouncedSearchQuery.length === 0) return { ...request, items: [] };
       const params = new URLSearchParams({ query: debouncedSearchQuery });
-      if (mapCenter) {
-        params.set("latitude", mapCenter.lat.toString());
-        params.set("longitude", mapCenter.lng.toString());
+      if (latitude !== null && longitude !== null) {
+        params.set("latitude", latitude.toString());
+        params.set("longitude", longitude.toString());
       }
-      return fetchApi(`/autocomplete?${params}`);
+      return { ...request, items: await fetchApi(`/autocomplete?${params}`) };
     },
     placeholderData: (previousData) => previousData,
   });
@@ -117,7 +130,7 @@ export function HomePage({
           isFetching ||
           searchQuery !== debouncedSearchQuery
         }
-        data={data || []}
+        results={data ?? EMPTY_AUTOCOMPLETE_RESULTS}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
       />

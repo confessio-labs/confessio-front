@@ -6,12 +6,20 @@ import ModalSheetScroller from "./ModalSheet/ModalSheetScroller";
 import ModalSheetDragZone from "./ModalSheet/ModalSheetDragZone";
 import { useSheetRef } from "./ModalSheet/SheetContext";
 import { useKeyboardOverlap } from "@/hooks/useKeyboardOverlap";
-import { fetchApi, getFrenchTimeString, getHolidayWarningReason } from "@/utils";
+import {
+  APP_TIME_ZONE,
+  appTodayKey,
+  fetchApi,
+  getFrenchTimeString,
+  getHolidayWarningReason,
+  localDateKey,
+} from "@/utils";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import posthog from "posthog-js";
 import {
   ArrowSquareOutIcon,
+  CameraIcon,
   CircleNotchIcon,
   NavigationArrowIcon,
   PaperPlaneTiltIcon,
@@ -40,6 +48,14 @@ const ERROR_TYPE_LABELS: Record<ErrorType, string> = {
 };
 
 const URL_REGEX = /(https?:\/\/[^\s]+)/g;
+
+// Opening a church optimistically renders a summary card, then hands off to
+// the server-rendered card for the same church — which remounts ChurchCard.
+// Track the last church we captured a view for (module-level, survives the
+// remount) so that handoff counts as one view, not two. A different church,
+// or re-opening one after viewing another, still captures normally; only a
+// consecutive re-mount for the same uuid is suppressed.
+let lastViewedChurchUuid: string | null = null;
 
 const renderCommentBody = (raw: string) => {
   const text = raw.replace(/\\r\\n|\\r|\\n/g, "\n");
@@ -71,6 +87,7 @@ const CommentEntry = ({ node }: { node: CommentNode }) => (
         day: "numeric",
         month: "long",
         year: "numeric",
+        timeZone: APP_TIME_ZONE,
       })}
     </span>
     <p className="text-ink text-[13px] leading-normal whitespace-pre-line [overflow-wrap:anywhere]">
@@ -88,8 +105,7 @@ const CommentEntry = ({ node }: { node: CommentNode }) => (
 
 const formatDayLabel = (dayKey: string) => {
   const date = new Date(dayKey);
-  const today = new Date();
-  const isToday = date.toDateString() === today.toDateString();
+  const isToday = localDateKey(date) === appTodayKey();
   const dayName = isToday
     ? "Aujourd'hui"
     : date
@@ -189,6 +205,24 @@ const ChurchCard = ({
     };
   }, [churchDetails?.website?.reports]);
 
+  // Parish-level images (scraped source shots and visitor uploads share one
+  // list — `ImageOut` carries no provenance field, so they render identically).
+  // An image that is also a parsing source already appears as the per-schedule
+  // thumbnail below its explanation, where it carries the schedule ↔ source
+  // link; showing it again here would just duplicate it. Matching against every
+  // parsing rather than only the selected day's keeps this stable across day
+  // tabs — otherwise the card would pop in and out as the user switches days.
+  const websiteImages = useMemo(() => {
+    const images = churchDetails?.website?.images ?? [];
+    if (images.length === 0) return images;
+    const sourceImageUrls = new Set(
+      (churchDetails?.parsings ?? [])
+        .map((p) => p.image_url)
+        .filter((url): url is string => !!url),
+    );
+    return images.filter((image) => !sourceImageUrls.has(image.public_url));
+  }, [churchDetails?.website?.images, churchDetails?.parsings]);
+
   const queryClient = useQueryClient();
   const [feedbackOpen, setFeedbackOpen] = useState<"good" | "error" | null>(
     null,
@@ -196,6 +230,10 @@ const ChurchCard = ({
   const [feedbackText, setFeedbackText] = useState("");
   const [errorType, setErrorType] = useState<ErrorType | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoComment, setPhotoComment] = useState("");
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [portalReady, setPortalReady] = useState(false);
   const lightboxClosedByBackRef = useRef(false);
@@ -252,6 +290,76 @@ const ChurchCard = ({
     },
   });
 
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(photoFile);
+    setPhotoPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photoFile]);
+
+  const postImage = useMutation({
+    mutationFn: async ({
+      file,
+      comment,
+    }: {
+      file: File;
+      comment: string;
+    }) => {
+      const uuid = churchDetails?.website?.uuid;
+      if (!uuid) throw new Error("missing website uuid");
+      const form = new FormData();
+      form.append("website_uuid", uuid);
+      if (comment.trim()) form.append("comment", comment.trim());
+      form.append("document", file);
+      // Do NOT set Content-Type — the browser sets the multipart boundary.
+      // fetchApi throws on a non-ok response, so a backend 4xx surfaces here.
+      return fetchApi("/images", {
+        method: "POST",
+        body: form,
+      }) as Promise<components["schemas"]["ImageOut"]>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["churchDetails", church.uuid],
+      });
+      posthog.capture("image_uploaded", {
+        church_uuid: church.uuid,
+        church_name: church.name,
+      });
+    },
+  });
+
+  const resetPhoto = () => {
+    setPhotoFile(null);
+    setPhotoComment("");
+    setPhotoError(null);
+    postImage.reset();
+    if (photoInputRef.current) photoInputRef.current.value = "";
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Allow re-picking the same file on a later attempt.
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("Veuillez choisir une image.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setPhotoError("Image trop lourde (10 Mo maximum).");
+      return;
+    }
+    setPhotoError(null);
+    postImage.reset();
+    setPhotoComment("");
+    setPhotoFile(file);
+  };
+
   useEffect(() => {
     if (feedbackOpen) textareaRef.current?.focus();
   }, [feedbackOpen]);
@@ -302,17 +410,25 @@ const ChurchCard = ({
 
   const canReport = Boolean(churchDetails?.website?.uuid);
 
+  // True while showing the optimistic summary card (built by summaryToCard,
+  // which has no website record) before the full record arrives. Drives
+  // skeletons for the parts the summary lacks so nothing shifts on load.
+  const isSummary = Boolean(churchDetails) && churchDetails?.website == null;
+
   const searchParams = useSearchParams();
   const query = searchParams.toString();
 
   useEffect(() => {
     const prev = document.title;
     document.title = `${church.name} — Confessio`;
-    posthog.capture("church_viewed", {
-      church_uuid: church.uuid,
-      church_name: church.name,
-      church_city: church.city,
-    });
+    if (lastViewedChurchUuid !== church.uuid) {
+      lastViewedChurchUuid = church.uuid;
+      posthog.capture("church_viewed", {
+        church_uuid: church.uuid,
+        church_name: church.name,
+        church_city: church.city,
+      });
+    }
     return () => {
       document.title = prev;
     };
@@ -360,28 +476,38 @@ const ChurchCard = ({
       </ModalSheetDragZone>
 
       <ModalSheetScroller draggableAt="top">
-        {churchDetails?.website?.home_url && (
+        {isSummary ? (
           <div className="px-5 pt-3 pb-1 flex">
-            <Link
-              href={churchDetails.website.home_url}
-              target="_blank"
-              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-white/75 hover:text-white transition-colors"
-              onClick={() =>
-                posthog.capture("parish_website_clicked", {
-                  church_uuid: church.uuid,
-                  church_name: church.name,
-                  parish_url: churchDetails.website?.home_url,
-                })
-              }
-            >
-              <span>Paroisse de {church.name}</span>
-              <ArrowSquareOutIcon
-                size={13}
-                weight="bold"
-                className="shrink-0"
-              />
-            </Link>
+            {/* Same text + classes as the real link so the height (and width)
+                match exactly — no shift when the link replaces it. */}
+            <span className="inline-flex items-center gap-1.5 text-[12px] font-medium rounded-full bg-white/12 text-transparent select-none motion-safe:animate-pulse">
+              Paroisse de {church.name}
+            </span>
           </div>
+        ) : (
+          churchDetails?.website?.home_url && (
+            <div className="px-5 pt-3 pb-1 flex">
+              <Link
+                href={churchDetails.website.home_url}
+                target="_blank"
+                className="inline-flex items-center gap-1.5 text-[12px] font-medium text-white/75 hover:text-white transition-colors"
+                onClick={() =>
+                  posthog.capture("parish_website_clicked", {
+                    church_uuid: church.uuid,
+                    church_name: church.name,
+                    parish_url: churchDetails.website?.home_url,
+                  })
+                }
+              >
+                <span>Paroisse de {church.name}</span>
+                <ArrowSquareOutIcon
+                  size={13}
+                  weight="bold"
+                  className="shrink-0"
+                />
+              </Link>
+            </div>
+          )
         )}
         <div className="pb-6 pt-2">
           {isLoading && (
@@ -454,6 +580,18 @@ const ChurchCard = ({
                           {formatTimeRange(event)}
                         </span>
                       </div>
+                      {schedules.length === 0 &&
+                        isSummary &&
+                        event.schedules_indices.length > 0 && (
+                          <div className="flex flex-col gap-2.5">
+                            {event.schedules_indices.map((_, j) => (
+                              <div key={j} className="flex flex-col gap-1.5">
+                                <div className="h-3 rounded bg-ink/10 motion-safe:animate-pulse" />
+                                <div className="h-3 w-3/5 rounded bg-ink/10 motion-safe:animate-pulse" />
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       {schedules.length > 0 && (
                         <div className="flex flex-col gap-1.5 text-[13px] leading-relaxed text-ink/70">
                           {schedules.map((s, j) => {
@@ -743,20 +881,165 @@ const ChurchCard = ({
             </div>
           )}
 
-          <div className="text-center px-4">
-            <Link
-              href={`https://confessio.fr/paroisse/${churchDetails?.website?.uuid}#feedbackForm`}
-              target="_blank"
-              className="inline-block underline underline-offset-4 decoration-white/30 hover:decoration-white/70 text-white/75 hover:text-white text-[13px] transition-colors"
-              onClick={() =>
-                posthog.capture("contribution_link_clicked", {
-                  church_uuid: church.uuid,
-                  church_name: church.name,
-                })
-              }
-            >
-              Ajouter une image des horaires de confession
-            </Link>
+          {websiteImages.length > 0 && (
+            <div className="px-4 pb-4 flex flex-col gap-2">
+              {websiteImages.map((image) => (
+                <div
+                  key={image.image_uuid}
+                  className="bg-paper rounded-xl p-3 flex flex-col gap-2 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.2)]"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLightboxUrl(image.public_url);
+                      posthog.capture("website_image_opened", {
+                        church_uuid: church.uuid,
+                        url: image.public_url,
+                      });
+                    }}
+                    aria-label="Agrandir l'image"
+                    className="block w-full rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={image.public_url}
+                      // The comment renders as visible text right below, so
+                      // repeating it here would read it twice to a screen
+                      // reader — and it describes provenance, not content.
+                      alt="Photo des horaires"
+                      loading="lazy"
+                      // object-contain, never cover: these are photos of
+                      // schedule boards, so cropping would eat the text.
+                      className="w-full h-auto max-h-[280px] object-contain"
+                    />
+                  </button>
+                  {image.comment && (
+                    <p className="text-ink/70 text-[12px] leading-normal whitespace-pre-line [overflow-wrap:anywhere]">
+                      {renderCommentBody(image.comment)}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="px-4">
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoSelect}
+            />
+
+            {postImage.isSuccess ? (
+              <div className="bg-paper rounded-xl p-3 flex flex-col items-center gap-2 text-center shadow-[0_2px_8px_-4px_rgba(0,0,0,0.2)]">
+                <SealCheckIcon
+                  size={20}
+                  weight="fill"
+                  className="text-emerald-700"
+                />
+                <p className="text-ink text-[13px] font-medium">
+                  Merci&nbsp;! Votre image a bien été envoyée.
+                </p>
+                <button
+                  type="button"
+                  onClick={resetPhoto}
+                  className="text-deepblue/70 hover:text-deepblue text-[13px] px-2 py-1 transition-colors"
+                >
+                  Ajouter une autre image
+                </button>
+              </div>
+            ) : photoFile ? (
+              <div className="bg-paper rounded-xl p-3 flex flex-col gap-2 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.2)]">
+                <div className="flex gap-3">
+                  {photoPreviewUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photoPreviewUrl}
+                      alt="Aperçu"
+                      className="w-20 h-20 object-cover rounded-lg shrink-0"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={resetPhoto}
+                    disabled={postImage.isPending}
+                    aria-label="Retirer l'image"
+                    className="self-start w-7 h-7 rounded-full bg-ink/5 hover:bg-ink/10 flex items-center justify-center transition-colors disabled:opacity-50"
+                  >
+                    <XIcon size={14} weight="bold" className="text-ink/70" />
+                  </button>
+                </div>
+                <textarea
+                  value={photoComment}
+                  onChange={(e) => setPhotoComment(e.target.value)}
+                  placeholder="Un commentaire ? (optionnel)"
+                  rows={2}
+                  disabled={postImage.isPending}
+                  // Keep mobile font-size >= 16px: iOS Safari force-zooms into inputs below 16px. Do not lower.
+                  className="w-full resize-none text-ink text-[16px] md:text-[13px] leading-normal placeholder:text-ink/40 bg-transparent focus:outline-none disabled:opacity-60"
+                />
+                {postImage.isError && (
+                  <p className="text-rose-600 text-[12px]">
+                    Erreur lors de l&apos;envoi. Réessayez.
+                  </p>
+                )}
+                <div className="flex justify-end gap-2 items-center">
+                  <button
+                    type="button"
+                    onClick={resetPhoto}
+                    disabled={postImage.isPending}
+                    className="text-deepblue/60 hover:text-deepblue text-[13px] px-2 py-1 transition-colors disabled:opacity-50"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      postImage.mutate({
+                        file: photoFile,
+                        comment: photoComment,
+                      })
+                    }
+                    disabled={postImage.isPending}
+                    className="inline-flex items-center gap-1.5 bg-deepblue text-white text-[13px] font-semibold rounded-full px-3.5 py-1.5 hover:bg-deepblue/90 transition-colors disabled:opacity-60"
+                  >
+                    {postImage.isPending ? (
+                      <CircleNotchIcon
+                        size={14}
+                        weight="bold"
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <PaperPlaneTiltIcon size={14} weight="fill" />
+                    )}
+                    Envoyer
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  disabled={!canReport}
+                  onClick={() => {
+                    posthog.capture("contribution_link_clicked", {
+                      church_uuid: church.uuid,
+                      church_name: church.name,
+                    });
+                    photoInputRef.current?.click();
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 rounded-full border bg-white/7 border-white/14 text-white/90 hover:bg-white/12 text-[13px] font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white/7"
+                >
+                  <CameraIcon size={16} className="shrink-0 text-white/70" />
+                  Ajouter une photo des horaires
+                </button>
+                {photoError && (
+                  <p className="text-rose-300 text-[12px]">{photoError}</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </ModalSheetScroller>

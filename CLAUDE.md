@@ -23,6 +23,9 @@ See `docs/testing.md` for the full workflow.
   Run them after any change to page metadata, `sitemap.ts`, the diocese
   or church routes, or anything in `src/lib/jsonld.ts`. Tests run on
   port **3100** to avoid colliding with `next dev`.
+- UI regression tests live in `tests/ui.spec.ts` (`pnpm test:ui`). They need
+  a browser: `pnpm exec playwright install chromium` once. Anything that can
+  be asserted rather than felt belongs here, not on the manual checklist.
 - Manual mobile QA before each prod release: copy
   `docs/manual-tests/mobile-pre-release.md` into
   `docs/manual-tests/runs/YYYY-MM-DD.md`, run both device passes,

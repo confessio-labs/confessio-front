@@ -1,0 +1,89 @@
+diff --git a/dist/index.js b/dist/index.js
+index 16687c2551d87a9c780b1469843840504c428f20..45b0bb39b9ef8a59b5c340e5e1f70cdc42db08d8 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -1000,6 +1000,9 @@ var SheetScroller = React2.forwardRef(
+   }, ref) => {
+     const { y } = useSheetContext();
+     const { setDragEnabled, setDragDisabled } = useSheetScrollerContext();
++    React2.useEffect(() => {
++      setDragEnabled();
++    }, []);
+     function determineDragState(element) {
+       if (disableScroll) {
+         setDragEnabled();
+@@ -1007,7 +1010,10 @@ var SheetScroller = React2.forwardRef(
+       }
+       const { scrollTop, scrollHeight, clientHeight } = element;
+       const isScrollable2 = scrollHeight > clientHeight;
+-      if (!isScrollable2) return;
++      if (!isScrollable2) {
++        setDragEnabled();
++        return;
++      }
+       const isAtTop = scrollTop <= 0;
+       const isAtBottom = scrollHeight - scrollTop === clientHeight;
+       const shouldEnable = draggableAt === "top" && isAtTop || draggableAt === "bottom" && isAtBottom || draggableAt === "both" && (isAtTop || isAtBottom);
+diff --git a/dist/index.mjs b/dist/index.mjs
+index aab998181334ab853da8a00c354278df8279acae..2c0a87aa517fefe41b3bcc5525f123e0e2ac0a52 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -994,6 +994,9 @@ var SheetScroller = forwardRef(
+   }, ref) => {
+     const { y } = useSheetContext();
+     const { setDragEnabled, setDragDisabled } = useSheetScrollerContext();
++    useEffect(() => {
++      setDragEnabled();
++    }, []);
+     function determineDragState(element) {
+       if (disableScroll) {
+         setDragEnabled();
+@@ -1001,7 +1004,10 @@ var SheetScroller = forwardRef(
+       }
+       const { scrollTop, scrollHeight, clientHeight } = element;
+       const isScrollable2 = scrollHeight > clientHeight;
+-      if (!isScrollable2) return;
++      if (!isScrollable2) {
++        setDragEnabled();
++        return;
++      }
+       const isAtTop = scrollTop <= 0;
+       const isAtBottom = scrollHeight - scrollTop === clientHeight;
+       const shouldEnable = draggableAt === "top" && isAtTop || draggableAt === "bottom" && isAtBottom || draggableAt === "both" && (isAtTop || isAtBottom);
+diff --git a/src/SheetScroller.tsx b/src/SheetScroller.tsx
+index 85c95e5711328196f0cc9a0bed21b3fafadffa55..b6ddff165d8afd6302caf8d227bd4be0bcfb75c0 100644
+--- a/src/SheetScroller.tsx
++++ b/src/SheetScroller.tsx
+@@ -1,4 +1,4 @@
+-import React, { type TouchEvent, type UIEvent, forwardRef } from 'react';
++import React, { type TouchEvent, type UIEvent, forwardRef, useEffect } from 'react';
+ import { motion, type MotionStyle } from 'motion/react';
+ 
+ import { useSheetContext, useSheetScrollerContext } from './context';
+@@ -22,6 +22,14 @@ export const SheetScroller = forwardRef<any, SheetScrollerProps>(
+     const { y } = useSheetContext();
+     const { setDragEnabled, setDragDisabled } = useSheetScrollerContext();
+ 
++    // A fresh scroller always starts draggable; scrolling re-disables it via
++    // the handlers below. Without this, a `disableDrag` set true by scrolling a
++    // previous (scrollable) scroller persists into the next one, and if that
++    // content is not internally scrollable the drag never re-enables.
++    useEffect(() => {
++      setDragEnabled();
++    }, []);
++
+     function determineDragState(element: HTMLDivElement) {
+       /**
+        * If the caller is managing the scrollability of the element,
+@@ -35,7 +43,10 @@ export const SheetScroller = forwardRef<any, SheetScrollerProps>(
+       const { scrollTop, scrollHeight, clientHeight } = element;
+       const isScrollable = scrollHeight > clientHeight;
+ 
+-      if (!isScrollable) return;
++      if (!isScrollable) {
++        setDragEnabled();
++        return;
++      }
+ 
+       const isAtTop = scrollTop <= 0;
+       const isAtBottom = scrollHeight - scrollTop === clientHeight;

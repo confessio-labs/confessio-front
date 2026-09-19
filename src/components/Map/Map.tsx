@@ -120,6 +120,9 @@ const Map = ({
       if (gl) {
         const layer = new MaptilerLayer({
           apiKey: MAP_TILER_API_KEY || "",
+          // The Streets style hardcodes {name:en} on country/state/city/town
+          // labels, so without this the map reads "New Aquitaine"/"Dunkirk".
+          language: "fr",
         }).addTo(map);
         // Reveal the map (fade out the shimmer) on first full render.
         try {
