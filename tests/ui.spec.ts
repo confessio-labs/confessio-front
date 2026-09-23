@@ -292,7 +292,11 @@ test.describe("date handling", () => {
         "Aujourd'hui",
         "Demain",
       ]);
-      expect(chips[3]).toContain(thirdChipDay);
+      // The SSR server runs on the real clock, so the rail first paints its
+      // date and only shows the frozen one once its boundary hydrates.
+      await expect(page.locator("[aria-pressed]").nth(3)).toContainText(
+        thirdChipDay,
+      );
 
       await context.close();
     });

@@ -138,12 +138,36 @@ test.describe("SEO smoke", () => {
 
   for (const slug of DIOCESE_SLUGS) {
     test(`diocese page: ${slug}`, async ({ request }) => {
-      await assertSeo(request, `/diocese/${slug}`, {
+      const path = `/diocese/${slug}`;
+      await assertSeo(request, path, {
         titleIncludes: "diocèse",
         descriptionIncludes: "confession",
+        requireJsonLd: true,
       });
+
+      const html = await (await request.get(path)).text();
+      expect(html, `${path} <title> repeats "diocèse"`).not.toMatch(
+        /diocèse d[e']\s*diocèse/i,
+      );
+      const h1 = html.match(/<h1[^>]*>([^<]*)<\/h1>/)?.[1];
+      expect(h1, `${path} missing server-rendered <h1>`).toMatch(/diocèse/i);
+      expect(html, `${path} missing diocese ItemList JSON-LD`).toContain(
+        '"@type":"ItemList"',
+      );
     });
   }
+
+  // The schedule list is today's snapshot, so any one diocese can
+  // legitimately be empty; all three at once means the list stopped
+  // rendering server-side.
+  test("diocese pages server-render church links", async ({ request }) => {
+    let links = 0;
+    for (const slug of DIOCESE_SLUGS) {
+      const html = await (await request.get(`/diocese/${slug}`)).text();
+      links += html.match(/href="\/church\//g)?.length ?? 0;
+    }
+    expect(links, "no church links in any diocese page HTML").toBeGreaterThan(0);
+  });
 
   for (const uuid of CHURCH_UUIDS) {
     test(`church page: ${uuid}`, async ({ request }) => {

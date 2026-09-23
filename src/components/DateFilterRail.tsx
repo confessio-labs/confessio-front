@@ -30,9 +30,12 @@ const chipClass = (active: boolean) =>
     ? "shrink-0 rounded-full bg-paper text-deepblue border border-paper px-4 py-2 text-[13px] font-semibold shadow-[0_3px_10px_-3px_rgba(0,0,0,0.45)] transition active:scale-95"
     : "shrink-0 rounded-full bg-white/10 text-white/80 border border-white/20 px-4 py-2 text-[13px] font-semibold transition hover:bg-white/15 active:scale-95";
 
-const DateFilterRail = () => {
-  const { date, setDate } = useDateFilter();
-  const selectedKey = date ? date.toISOString().split("T")[0] : null;
+type RailProps = {
+  selectedKey: string | null;
+  setDate: (date: Date | null) => void;
+};
+
+const Rail = ({ selectedKey, setDate }: RailProps) => {
   const activeRef = useRef<HTMLButtonElement | null>(null);
 
   const [ty, tm, td] = appTodayKey().split("-").map(Number) as [
@@ -101,6 +104,17 @@ const DateFilterRail = () => {
       <div className="pointer-events-none absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-deepblue to-transparent" />
     </div>
   );
+};
+
+// Stands in for the rail while the URL-reading version waits for the client.
+export const StaticDateFilterRail = () => (
+  <Rail selectedKey={null} setDate={() => {}} />
+);
+
+const DateFilterRail = () => {
+  const { date, setDate } = useDateFilter();
+  const selectedKey = date ? date.toISOString().split("T")[0] ?? null : null;
+  return <Rail selectedKey={selectedKey} setDate={setDate} />;
 };
 
 export default DateFilterRail;

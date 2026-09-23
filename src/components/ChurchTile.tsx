@@ -1,7 +1,6 @@
 "use client";
 import { AggregatedSearchResults } from "@/utils";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 
 const formatDayLabel = (dateString: string) => {
   const date = new Date(dateString);
@@ -27,11 +26,11 @@ const formatTime = (dateString: string) => {
 
 const ChurchTile = ({
   church,
+  query,
 }: {
   church: AggregatedSearchResults["churches"][number];
+  query: string;
 }) => {
-  const searchParams = useSearchParams();
-  const query = searchParams.toString();
   const events = church.eventsByDay;
   if (events === undefined || Object.keys(events).length === 0) return null;
   const entries = Object.entries(events);
