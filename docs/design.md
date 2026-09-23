@@ -62,7 +62,7 @@ font feels continuous with the rest of the UI.
 Three radii, one rule per layer:
 
 - `rounded-full` — pills and circular buttons (time pills, close X, votes capsule, search pill)
-- `rounded-2xl` (16px) — **outer surfaces**: modal sheet, list tiles, search dropdown
+- `rounded-2xl` (16px) — **outer surfaces**: modal sheet, list tiles, search dropdown. On mobile the sheet rounds its top corners only — it runs off the bottom of the screen, so a rounded bottom would show where it ends
 - `rounded-xl` (12px) — **inner surfaces**: inner paper card in modal, comment bubbles; also day tabs' top (`rounded-t-xl`, matches card below)
 
 Rule: *outer 16, inner 12, interactive full.* We previously had `rounded-3xl`
