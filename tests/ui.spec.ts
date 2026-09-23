@@ -26,7 +26,9 @@ async function stubApi(page: Page, overrides: Json = {}) {
     return route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(Array.isArray(overrides.__list) ? overrides.__list : []),
+      body: JSON.stringify(
+        Array.isArray(overrides.__list) ? overrides.__list : [],
+      ),
     });
   });
 }
@@ -39,25 +41,35 @@ async function openChurchCard(page: Page, overrides: Json = {}) {
   ).toBeVisible();
 }
 
+async function openCompleteForm(page: Page) {
+  await openChurchCard(page);
+  await page
+    .getByRole("button", { name: /Compléter l'information ou signaler/i })
+    .click();
+  await page
+    .getByRole("button", { name: "Compléter l'information", exact: true })
+    .click();
+}
+
 test.describe("church card — contribution UI", () => {
   test("offers the in-app photo upload, not the legacy off-site link", async ({
     page,
   }) => {
-    await openChurchCard(page);
+    await openCompleteForm(page);
 
     await expect(
-      page.getByRole("button", { name: /Ajouter une photo des horaires/i }),
+      page.getByRole("button", { name: /Ajouter une photo/i }),
     ).toBeVisible();
 
     // 8574714 re-added this link on main; 6b357bb replaces it. If a bad merge
     // resolution ever brings it back, both would render.
-    await expect(
-      page.locator('a[href*="confessio.fr/paroisse"]'),
-    ).toHaveCount(0);
+    await expect(page.locator('a[href*="confessio.fr/paroisse"]')).toHaveCount(
+      0,
+    );
   });
 
   test("rejects a non-image file", async ({ page }) => {
-    await openChurchCard(page);
+    await openCompleteForm(page);
 
     await page.locator('input[type="file"]').setInputFiles({
       name: "horaires.pdf",
@@ -65,11 +77,11 @@ test.describe("church card — contribution UI", () => {
       buffer: Buffer.from("%PDF-1.4 not an image"),
     });
 
-    await expect(page.getByText("Veuillez choisir une image.")).toBeVisible();
+    await expect(page.getByText("Choisissez une image.")).toBeVisible();
   });
 
   test("rejects an image over 10 Mo", async ({ page }) => {
-    await openChurchCard(page);
+    await openCompleteForm(page);
 
     await page.locator('input[type="file"]').setInputFiles({
       name: "huge.jpg",
@@ -80,6 +92,52 @@ test.describe("church card — contribution UI", () => {
     await expect(
       page.getByText("Image trop lourde (10 Mo maximum)."),
     ).toBeVisible();
+  });
+
+  test("a complement needs text or a photo before it can be sent", async ({
+    page,
+  }) => {
+    await openCompleteForm(page);
+    const send = page.getByRole("button", { name: "Envoyer mon complément" });
+
+    await expect(send).toBeDisabled();
+
+    await page.locator("textarea").fill("Aussi le samedi à 18h");
+    await expect(send).toBeEnabled();
+
+    await page.locator("textarea").fill("   ");
+    await expect(send).toBeDisabled();
+
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "affiche.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from([0xff, 0xd8, 0xff]),
+    });
+    await expect(send).toBeEnabled();
+  });
+
+  test("an error report needs text before it can be sent", async ({ page }) => {
+    await openChurchCard(page);
+    await page
+      .getByRole("button", { name: /Compléter l'information ou signaler/i })
+      .click();
+    await page
+      .getByRole("button", { name: "Signaler une erreur", exact: true })
+      .click();
+    const send = page.getByRole("button", { name: "Envoyer mon signalement" });
+
+    await expect(send).toBeDisabled();
+    await page.locator("textarea").fill("Le lien Source est mort");
+    await expect(send).toBeEnabled();
+  });
+
+  test("a validation can be sent without text", async ({ page }) => {
+    await openChurchCard(page);
+    await page
+      .getByRole("button", { name: /Confirmer que ces horaires/i })
+      .click();
+
+    await expect(page.getByRole("button", { name: "Valider" })).toBeEnabled();
   });
 });
 
@@ -132,10 +190,7 @@ test.describe("navigation modal", () => {
       page.locator("dialog a[href*='accounts/login']"),
     ).not.toHaveClass(/rounded-b-xl/);
 
-    await expect(entries.last()).toHaveAttribute(
-      "href",
-      /play\.google\.com/,
-    );
+    await expect(entries.last()).toHaveAttribute("href", /play\.google\.com/);
   });
 });
 
@@ -182,8 +237,8 @@ test.describe("date handling", () => {
       await expect(page.getByText("Aujourd'hui").first()).toBeVisible();
 
       // Sanity: the browser really is at the instant and zone we asked for.
-      const anchored = await page.evaluate(
-        () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
+      const anchored = await page.evaluate(() =>
+        new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
       );
       expect(anchored).toBe(parisToday);
 
@@ -205,7 +260,11 @@ test.describe("date handling", () => {
   // Hydration needs its own case on the real clock: with the clock frozen only
   // in the browser, the server and client are genuinely at different instants
   // and a mismatch would be the test's own doing, not the app's.
-  for (const timezoneId of ["UTC", "Pacific/Kiritimati", "America/Los_Angeles"]) {
+  for (const timezoneId of [
+    "UTC",
+    "Pacific/Kiritimati",
+    "America/Los_Angeles",
+  ]) {
     test(`the date UI hydrates without a mismatch under ${timezoneId}`, async ({
       browser,
     }) => {
