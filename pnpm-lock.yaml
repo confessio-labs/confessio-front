@@ -6,7 +6,7 @@ settings:
 
 patchedDependencies:
   react-modal-sheet@4.4.0:
-    hash: aodaq2m6xa4gtz7sgb5l5noepe
+    hash: 5nv5eiqilibesr442elxakx4vq
     path: patches/react-modal-sheet@4.4.0.patch
 
 importers:
@@ -57,7 +57,7 @@ importers:
         version: 5.0.0(leaflet@1.9.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       react-modal-sheet:
         specifier: ^4.4.0
-        version: 4.4.0(patch_hash=aodaq2m6xa4gtz7sgb5l5noepe)(motion@12.16.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)
+        version: 4.4.0(patch_hash=5nv5eiqilibesr442elxakx4vq)(motion@12.16.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)
       use-debounce:
         specifier: ^10.0.6
         version: 10.0.6(react@19.1.0)
@@ -4641,7 +4641,7 @@ snapshots:
       react-dom: 19.1.0(react@19.1.0)
       resize-observer-polyfill: 1.5.1
 
-  react-modal-sheet@4.4.0(patch_hash=aodaq2m6xa4gtz7sgb5l5noepe)(motion@12.16.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0):
+  react-modal-sheet@4.4.0(patch_hash=5nv5eiqilibesr442elxakx4vq)(motion@12.16.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0):
     dependencies:
       motion: 12.16.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       react: 19.1.0

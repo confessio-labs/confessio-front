@@ -1,8 +1,36 @@
 diff --git a/dist/index.js b/dist/index.js
-index 16687c2551d87a9c780b1469843840504c428f20..45b0bb39b9ef8a59b5c340e5e1f70cdc42db08d8 100644
+index 16687c2551d87a9c780b1469843840504c428f20..9d73da0ae2f2679be631d8ac4956c1469bcf7354 100644
 --- a/dist/index.js
 +++ b/dist/index.js
-@@ -1000,6 +1000,9 @@ var SheetScroller = React2.forwardRef(
+@@ -494,11 +494,16 @@ function preventScrollStandard() {
+     setStyle(document.documentElement, "overflow", "hidden")
+   );
+ }
++var TAP_SLOP_PX = 10;
+ function preventScrollMobileSafari() {
+   let scrollable;
+   let lastY = 0;
++  let startX = 0;
++  let startY = 0;
+   const onTouchStart = (e) => {
+     var _a;
++    startX = e.changedTouches[0].pageX;
++    startY = e.changedTouches[0].pageY;
+     const target = (_a = e.composedPath()) == null ? void 0 : _a[0];
+     scrollable = getScrollParent(target, true);
+     if (scrollable === document.documentElement && scrollable === document.body) {
+@@ -528,6 +533,10 @@ function preventScrollMobileSafari() {
+   const onTouchEnd = (e) => {
+     var _a;
+     const target = (_a = e.composedPath()) == null ? void 0 : _a[0];
++    const touch = e.changedTouches[0];
++    if (Math.hypot(touch.pageX - startX, touch.pageY - startY) > TAP_SLOP_PX) {
++      return;
++    }
+     if (willOpenKeyboard(target) && target !== document.activeElement) {
+       e.preventDefault();
+       target.style.transform = "translateY(-2000px)";
+@@ -1000,6 +1009,9 @@ var SheetScroller = React2.forwardRef(
    }, ref) => {
      const { y } = useSheetContext();
      const { setDragEnabled, setDragDisabled } = useSheetScrollerContext();
@@ -12,7 +40,7 @@ index 16687c2551d87a9c780b1469843840504c428f20..45b0bb39b9ef8a59b5c340e5e1f70cdc
      function determineDragState(element) {
        if (disableScroll) {
          setDragEnabled();
-@@ -1007,7 +1010,10 @@ var SheetScroller = React2.forwardRef(
+@@ -1007,7 +1019,10 @@ var SheetScroller = React2.forwardRef(
        }
        const { scrollTop, scrollHeight, clientHeight } = element;
        const isScrollable2 = scrollHeight > clientHeight;
@@ -25,10 +53,38 @@ index 16687c2551d87a9c780b1469843840504c428f20..45b0bb39b9ef8a59b5c340e5e1f70cdc
        const isAtBottom = scrollHeight - scrollTop === clientHeight;
        const shouldEnable = draggableAt === "top" && isAtTop || draggableAt === "bottom" && isAtBottom || draggableAt === "both" && (isAtTop || isAtBottom);
 diff --git a/dist/index.mjs b/dist/index.mjs
-index aab998181334ab853da8a00c354278df8279acae..2c0a87aa517fefe41b3bcc5525f123e0e2ac0a52 100644
+index aab998181334ab853da8a00c354278df8279acae..6fb396f152199a7846368b345b9a2d8ff99f5b44 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
-@@ -994,6 +994,9 @@ var SheetScroller = forwardRef(
+@@ -488,11 +488,16 @@ function preventScrollStandard() {
+     setStyle(document.documentElement, "overflow", "hidden")
+   );
+ }
++var TAP_SLOP_PX = 10;
+ function preventScrollMobileSafari() {
+   let scrollable;
+   let lastY = 0;
++  let startX = 0;
++  let startY = 0;
+   const onTouchStart = (e) => {
+     var _a;
++    startX = e.changedTouches[0].pageX;
++    startY = e.changedTouches[0].pageY;
+     const target = (_a = e.composedPath()) == null ? void 0 : _a[0];
+     scrollable = getScrollParent(target, true);
+     if (scrollable === document.documentElement && scrollable === document.body) {
+@@ -522,6 +527,10 @@ function preventScrollMobileSafari() {
+   const onTouchEnd = (e) => {
+     var _a;
+     const target = (_a = e.composedPath()) == null ? void 0 : _a[0];
++    const touch = e.changedTouches[0];
++    if (Math.hypot(touch.pageX - startX, touch.pageY - startY) > TAP_SLOP_PX) {
++      return;
++    }
+     if (willOpenKeyboard(target) && target !== document.activeElement) {
+       e.preventDefault();
+       target.style.transform = "translateY(-2000px)";
+@@ -994,6 +1003,9 @@ var SheetScroller = forwardRef(
    }, ref) => {
      const { y } = useSheetContext();
      const { setDragEnabled, setDragDisabled } = useSheetScrollerContext();
@@ -38,7 +94,7 @@ index aab998181334ab853da8a00c354278df8279acae..2c0a87aa517fefe41b3bcc5525f123e0
      function determineDragState(element) {
        if (disableScroll) {
          setDragEnabled();
-@@ -1001,7 +1004,10 @@ var SheetScroller = forwardRef(
+@@ -1001,7 +1013,10 @@ var SheetScroller = forwardRef(
        }
        const { scrollTop, scrollHeight, clientHeight } = element;
        const isScrollable2 = scrollHeight > clientHeight;
@@ -87,3 +143,44 @@ index 85c95e5711328196f0cc9a0bed21b3fafadffa55..b6ddff165d8afd6302caf8d227bd4be0
  
        const isAtTop = scrollTop <= 0;
        const isAtBottom = scrollHeight - scrollTop === clientHeight;
+diff --git a/src/hooks/use-prevent-scroll.ts b/src/hooks/use-prevent-scroll.ts
+index 75dce89a2b789b7abc23ea9aeaadcfec456eabea..3e3bc0af73d22f87535d8d78ebd3fa2d42710949 100644
+--- a/src/hooks/use-prevent-scroll.ts
++++ b/src/hooks/use-prevent-scroll.ts
+@@ -151,11 +151,20 @@ function preventScrollStandard() {
+ //    above work or Safari will still try to scroll the page when focusing an input.
+ // 6. As a last resort, handle window scroll events, and scroll back to the top. This can happen when attempting
+ //    to navigate to an input with the next/previous buttons that's outside a modal.
++// Beyond this distance a touch is a scroll or drag, not a tap. Roughly the
++// movement iOS itself tolerates before it stops treating a touch as a tap.
++const TAP_SLOP_PX = 10;
++
+ function preventScrollMobileSafari() {
+   let scrollable: Element | undefined;
+   let lastY = 0;
++  let startX = 0;
++  let startY = 0;
+ 
+   const onTouchStart = (e: TouchEvent) => {
++    startX = e.changedTouches[0].pageX;
++    startY = e.changedTouches[0].pageY;
++
+     // Use `composedPath` to support shadow DOM.
+     const target = e.composedPath()?.[0] as HTMLElement;
+ 
+@@ -213,6 +222,15 @@ function preventScrollMobileSafari() {
+     // Use `composedPath` to support shadow DOM.
+     const target = e.composedPath()?.[0] as HTMLElement;
+ 
++    // A touch event's target is where the touch started, so a scroll that
++    // began on an input would otherwise focus it on release.
++    const touch = e.changedTouches[0];
++    if (
++      Math.hypot(touch.pageX - startX, touch.pageY - startY) > TAP_SLOP_PX
++    ) {
++      return;
++    }
++
+     // Apply this change if we're not already focused on the target element
+     if (willOpenKeyboard(target) && target !== document.activeElement) {
+       e.preventDefault();
