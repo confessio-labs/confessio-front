@@ -154,19 +154,6 @@ const KindChip = ({
   </span>
 );
 
-const PanelHead = ({ onClose }: { onClose: () => void }) => (
-  <div className="flex justify-end">
-    <button
-      type="button"
-      onClick={onClose}
-      aria-label="Fermer"
-      className="shrink-0 w-6 h-6 rounded-full bg-ink/6 hover:bg-ink/12 flex items-center justify-center transition-colors"
-    >
-      <XIcon size={13} weight="bold" className="text-ink" />
-    </button>
-  </div>
-);
-
 const Choice = ({
   icon,
   title,
@@ -284,7 +271,6 @@ const CommunityFeedback = ({
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const firstFieldRef = useRef<HTMLTextAreaElement>(null);
 
   const { upvotes, lastGoodAt, entries } = useMemo(() => {
     const reports = churchDetails?.website?.reports ?? [];
@@ -481,13 +467,22 @@ const CommunityFeedback = ({
     panelRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [keyboardOverlap, sheetRef]);
 
+  const inValidateBranch = step === "validate" || step === "sent-good";
+  const inAddBranch =
+    step !== "root" && step !== "validate" && step !== "sent-good";
+
+  const isOpen = step !== "root";
   useEffect(() => {
-    if (isFormStep) {
-      firstFieldRef.current?.focus();
-    }
-  }, [isFormStep]);
+    if (!isOpen) return;
+    sheetRef?.current?.snapTo(0);
+    panelRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [isOpen, sheetRef]);
 
   const openFork = () => {
+    if (inAddBranch) {
+      goRoot();
+      return;
+    }
     posthog.capture("feedback_fork_opened", {
       church_uuid: church.uuid,
       church_name: church.name,
@@ -497,6 +492,10 @@ const CommunityFeedback = ({
   };
 
   const openValidate = () => {
+    if (inValidateBranch) {
+      goRoot();
+      return;
+    }
     posthog.capture("church_upvoted", {
       church_uuid: church.uuid,
       church_name: church.name,
@@ -572,9 +571,7 @@ const CommunityFeedback = ({
       case "validate":
         return (
           <>
-            <PanelHead onClose={goRoot} />
             <textarea
-              ref={firstFieldRef}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Commentaire (facultatif)"
@@ -594,7 +591,6 @@ const CommunityFeedback = ({
       case "fork":
         return (
           <>
-            <PanelHead onClose={goRoot} />
             {sourceHost && (
               <p className="text-[12.5px] leading-normal text-deepblue/62">
                 Ces horaires viennent de{" "}
@@ -625,7 +621,6 @@ const CommunityFeedback = ({
       case "complete":
         return (
           <>
-            <PanelHead onClose={goRoot} />
             {photoFile ? (
               <div className="w-full h-24 flex gap-2.5 items-center rounded-xl border border-hairline bg-white p-2">
                 {photoPreviewUrl && (
@@ -664,7 +659,6 @@ const CommunityFeedback = ({
               </button>
             )}
             <textarea
-              ref={firstFieldRef}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder={
@@ -693,10 +687,8 @@ const CommunityFeedback = ({
       case "report":
         return (
           <>
-            <PanelHead onClose={goRoot} />
             <div className="flex flex-col gap-1">
               <textarea
-                ref={firstFieldRef}
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="Ex. : le lien Source pointe vers l'ancien site de la paroisse."
@@ -754,10 +746,6 @@ const CommunityFeedback = ({
     }
   };
 
-  const inValidateBranch = step === "validate" || step === "sent-good";
-  const inAddBranch =
-    step !== "root" && step !== "validate" && step !== "sent-good";
-
   return (
     <div className="flex flex-col">
       <input
@@ -778,6 +766,7 @@ const CommunityFeedback = ({
               type="button"
               aria-label="Confirmer que ces horaires sont à jour"
               disabled={!canReport}
+              aria-expanded={inValidateBranch}
               onClick={openValidate}
               className={[
                 "flex-1 min-h-[52px] rounded-full border flex flex-col items-center justify-center gap-px px-2 py-1.5 transition-colors",
@@ -809,6 +798,7 @@ const CommunityFeedback = ({
               type="button"
               aria-label="Compléter l'information ou signaler une erreur"
               disabled={!canReport}
+              aria-expanded={inAddBranch}
               onClick={openFork}
               className={[
                 "flex-1 min-h-[52px] rounded-full border flex flex-col items-center justify-center gap-px px-2 py-1.5 transition-colors",
