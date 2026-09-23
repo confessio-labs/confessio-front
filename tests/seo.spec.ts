@@ -28,10 +28,9 @@ async function assertSeo(
 
   const html = await res.text();
 
-  expect(
-    html,
-    `${path} rendered a Next.js error boundary`,
-  ).not.toMatch(/__next_error|Application error: a (?:client|server)-side exception/);
+  expect(html, `${path} rendered a Next.js error boundary`).not.toMatch(
+    /__next_error|Application error: a (?:client|server)-side exception/,
+  );
 
   const title = html.match(/<title[^>]*>([^<]*)<\/title>/)?.[1]?.trim();
   expect(title, `${path} missing <title>`).toBeTruthy();
@@ -99,6 +98,27 @@ test.describe("SEO smoke", () => {
     });
   });
 
+  test("manifest.webmanifest makes the app installable", async ({
+    request,
+  }) => {
+    const res = await request.get("/manifest.webmanifest");
+    expect(res.status()).toBe(200);
+    const manifest = await res.json();
+    expect(manifest.display).toBe("standalone");
+    expect(manifest.start_url).toBe("/");
+    const sizes = manifest.icons.map((i: { sizes: string }) => i.sizes);
+    expect(sizes).toContain("192x192");
+    expect(sizes).toContain("512x512");
+    for (const icon of manifest.icons) {
+      const iconRes = await request.get(icon.src);
+      expect(iconRes.status(), icon.src).toBe(200);
+    }
+
+    const html = await (await request.get("/")).text();
+    expect(html).toContain('rel="manifest"');
+    expect(html).toContain('rel="apple-touch-icon"');
+  });
+
   test("sitemap.xml", async ({ request }) => {
     const res = await request.get("/sitemap.xml");
     expect(res.status()).toBe(200);
@@ -109,9 +129,7 @@ test.describe("SEO smoke", () => {
     const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(
       (m) => m[1] ?? "",
     );
-    const dioceseCount = locs.filter((u) =>
-      u.includes("/diocese/"),
-    ).length;
+    const dioceseCount = locs.filter((u) => u.includes("/diocese/")).length;
     expect(
       dioceseCount,
       "sitemap should expose at least 50 diocese URLs",

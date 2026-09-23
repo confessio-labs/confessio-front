@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import ModalSheetScroller from "./ModalSheet/ModalSheetScroller";
 import ModalSheetDragZone from "./ModalSheet/ModalSheetDragZone";
 import { CommunityFeedback } from "./CommunityFeedback";
+import ShareButton from "./ShareButton";
 import {
   appTodayKey,
   fetchApi,
@@ -165,11 +166,33 @@ const ChurchCard = ({
   return (
     <>
       <ModalSheetDragZone>
-        <div className="px-5 pt-4 pb-3 flex flex-col gap-1.5">
-          <span className="flex justify-between gap-2 items-start">
+        <div className="px-5 pt-4 pb-3 flex justify-between gap-2 items-start">
+          <div className="flex flex-col gap-1.5 min-w-0">
             <h3 className="text-white leading-[1.15] text-[22px] font-semibold tracking-[-0.01em]">
               {church.name}
             </h3>
+            <Link
+              href={`https://www.google.com/maps/dir/?api=1&destination=${church.latitude},${church.longitude}`}
+              target="_blank"
+              className="group inline-flex items-start gap-1.5 self-start text-[13px] leading-snug text-white/70 hover:text-white transition-colors"
+              onClick={() =>
+                posthog.capture("directions_opened", {
+                  church_uuid: church.uuid,
+                  church_name: church.name,
+                })
+              }
+            >
+              <NavigationArrowIcon
+                size={14}
+                weight="fill"
+                className="mt-[3px] shrink-0 text-white/55 group-hover:text-white transition-colors"
+              />
+              <span className="whitespace-pre-line">
+                {[church.address, church.city].filter(Boolean).join("\n")}
+              </span>
+            </Link>
+          </div>
+          <div className="shrink-0 flex flex-col gap-2">
             <Link
               href={`/?${query}`}
               aria-label="Fermer"
@@ -177,27 +200,12 @@ const ChurchCard = ({
             >
               <XIcon size={16} weight="bold" color="white" />
             </Link>
-          </span>
-          <Link
-            href={`https://www.google.com/maps/dir/?api=1&destination=${church.latitude},${church.longitude}`}
-            target="_blank"
-            className="group inline-flex items-start gap-1.5 self-start text-[13px] leading-snug text-white/70 hover:text-white transition-colors"
-            onClick={() =>
-              posthog.capture("directions_opened", {
-                church_uuid: church.uuid,
-                church_name: church.name,
-              })
-            }
-          >
-            <NavigationArrowIcon
-              size={14}
-              weight="fill"
-              className="mt-[3px] shrink-0 text-white/55 group-hover:text-white transition-colors"
+            <ShareButton
+              title={`${church.name} — Confessio`}
+              path={`/church/${church.uuid}`}
+              churchUuid={church.uuid}
             />
-            <span className="whitespace-pre-line">
-              {[church.address, church.city].filter(Boolean).join("\n")}
-            </span>
-          </Link>
+          </div>
         </div>
 
         <hr className="mx-0 border-0 h-px bg-white/12" />
@@ -371,13 +379,10 @@ const ChurchCard = ({
                                       type="button"
                                       onClick={() => {
                                         setLightboxUrl(imageUrl);
-                                        posthog.capture(
-                                          "source_image_opened",
-                                          {
-                                            church_uuid: church.uuid,
-                                            url: imageUrl,
-                                          },
-                                        );
+                                        posthog.capture("source_image_opened", {
+                                          church_uuid: church.uuid,
+                                          url: imageUrl,
+                                        });
                                       }}
                                       aria-label="Voir la source"
                                       className="block w-12 h-12 rounded-lg overflow-hidden border border-ink/10 hover:border-deepblue/40 transition-colors bg-paper"

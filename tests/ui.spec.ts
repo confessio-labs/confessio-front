@@ -141,6 +141,47 @@ test.describe("church card — contribution UI", () => {
   });
 });
 
+test.describe("church card — share", () => {
+  test("opens the native share sheet with the clean church URL", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __shared: ShareData[] }).__shared = [];
+      navigator.share = async (data?: ShareData) => {
+        (window as unknown as { __shared: ShareData[] }).__shared.push(data!);
+      };
+    });
+    await openChurchCard(page);
+    await page.getByRole("button", { name: "Partager" }).click();
+
+    const shared = await page.evaluate(
+      () => (window as unknown as { __shared: ShareData[] }).__shared,
+    );
+    expect(shared).toHaveLength(1);
+    expect(new URL(shared[0]!.url!).pathname).toBe(`/church/${CHURCH_UUID}`);
+    expect(new URL(shared[0]!.url!).search).toBe("");
+    expect(shared[0]!.title).toContain(churchDetails.name);
+  });
+
+  test("copies the link when the browser has no share sheet", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.addInitScript(() => {
+      delete (Navigator.prototype as Partial<Navigator>).share;
+    });
+    await openChurchCard(page);
+    await page.getByRole("button", { name: "Partager" }).click();
+
+    await expect(
+      page.getByRole("button", { name: "Lien copié" }),
+    ).toBeVisible();
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    expect(new URL(copied).pathname).toBe(`/church/${CHURCH_UUID}`);
+  });
+});
+
 test.describe("church card — parish images", () => {
   test("hides an image that is already a parsing source", async ({ page }) => {
     const sourceUrl = "https://example.test/source-shot.jpg";
