@@ -29,18 +29,35 @@ const mapItemTypeToIcon: Record<string, Icon> = {
   municipality: BuildingsIcon,
 };
 
+// fitBounds picks the highest zoom at which the box fits, so a viewport-sized
+// box at `zoom` lands on `zoom`. Shrunk by 10% so float rounding in
+// getBoundsZoom doesn't drop it one level.
+const viewportBoundsAround = (lat: number, lng: number, zoom: number) => {
+  const degreesPerPixel = 360 / (256 * 2 ** zoom);
+  const halfLng = (window.innerWidth / 2) * degreesPerPixel * 0.9;
+  const halfLat =
+    (window.innerHeight / 2) * degreesPerPixel * Math.cos((lat * Math.PI) / 180) * 0.9;
+  return [lat - halfLat, lng - halfLng, lat + halfLat, lng + halfLng]
+    .map((n) => n.toFixed(6))
+    .join(",");
+};
+
 export const SearchInput = ({
   map,
   results,
   isLoading,
   searchQuery,
   setSearchQuery,
+  placement = "map",
 }: {
   map: Map | null;
   results: AutocompleteResults;
   isLoading: boolean;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  // "map" floats over the map's top-left corner; "hero" fills a relative,
+  // h-11 wrapper supplied by the page.
+  placement?: "map" | "hero";
 }) => {
   const data = results.items;
   const [isFocused, setIsFocused] = useAtom(isSearchFocusedAtom);
@@ -104,13 +121,19 @@ export const SearchInput = ({
 
   const onClick = useCallback(
     (item: components["schemas"]["AutocompleteItem"]) => () => {
-      if (map && item.latitude && item.longitude) {
-        const zoomLevel = item.type === "municipality" ? 13 : 15;
+      if (!item.latitude || !item.longitude) return;
+      inputRef.current?.blur();
+      const zoomLevel = item.type === "municipality" ? 13 : 15;
+      if (map) {
         map.setView([item.latitude, item.longitude], zoomLevel);
-        inputRef.current?.blur();
+      } else {
+        // A freshly mounted map ignores ?center; it only fits ?bounds.
+        router.push(
+          `/?bounds=${viewportBoundsAround(item.latitude, item.longitude, zoomLevel)}`,
+        );
       }
     },
-    [map],
+    [map, router],
   );
 
   // A church result carries its uuid directly; other results (e.g. parishes)
@@ -165,15 +188,25 @@ export const SearchInput = ({
     <>
       <div
         className={clsx([
-          "absolute flex flex-col items-stretch justify-start z-40 md:w-[468px] md:rounded-2xl md:inset-x-4 md:top-4",
-          isFocused
-            ? "inset-0 h-dvh bg-white pt-4 px-4 md:bg-transparent md:p-0 md:h-auto md:bottom-auto md:right-auto"
-            : "inset-x-4 top-4 rounded-2xl",
+          "flex flex-col items-stretch justify-start z-40 md:rounded-2xl",
+          placement === "map" && [
+            "absolute md:w-[468px] md:inset-x-4 md:top-4",
+            isFocused
+              ? "inset-0 h-dvh bg-white pt-4 px-4 md:bg-transparent md:p-0 md:h-auto md:bottom-auto md:right-auto"
+              : "inset-x-4 top-4 rounded-2xl",
+          ],
+          placement === "hero" && [
+            "md:absolute md:inset-x-0 md:top-0",
+            isFocused
+              ? "fixed inset-0 h-dvh bg-white pt-4 px-4 md:bg-transparent md:p-0 md:h-auto md:bottom-auto"
+              : "absolute inset-x-0 top-0 rounded-2xl",
+          ],
         ])}
       >
         <div
           className={clsx([
             "h-11 px-2 bg-white gap-2 rounded-full text-deepblue flex items-center relative z-10 border border-hairline transition-shadow",
+            placement === "hero" && !isFocused && "pl-4",
             !isFocused && "shadow-[0_4px_14px_-4px_rgba(36,46,76,0.14)]",
             isFocused && "shadow-none md:shadow-[0_0_0_3px_rgba(0,92,223,0.18),0_8px_24px_-8px_rgba(36,46,76,0.18)]",
           ])}
@@ -187,6 +220,7 @@ export const SearchInput = ({
               <ArrowLeftIcon size={24} />
             </button>
           ) : (
+            placement === "map" && (
             <div className="self-center shrink-0 flex items-center justify-center size-8">
               <Image
                 src="/confessioLogoBlue.svg"
@@ -195,6 +229,7 @@ export const SearchInput = ({
                 height={24}
               />
             </div>
+            )
           )}
           <input
             ref={inputRef}
@@ -237,7 +272,7 @@ export const SearchInput = ({
               <XIcon size={18} />
             </button>
           )}
-          {!isFocused && (
+          {placement === "map" && !isFocused && (
             <button
               onClick={() => {
                 setIsNavigationModalOpen(true);
@@ -254,7 +289,11 @@ export const SearchInput = ({
         <ul
           className={clsx(
             "min-h-0 overflow-y-auto bg-white rounded-b-2xl -mt-5 pt-5",
-            { hidden: !isFocused, "flex-1": !hasResults },
+            {
+              hidden: !isFocused,
+              "flex-1": !hasResults,
+              "md:max-h-80": placement === "hero",
+            },
           )}
           // Keyboard-height padding so the end of the list is scrollable
           // above the iOS keyboard (see keyboardOverlap effect above).
