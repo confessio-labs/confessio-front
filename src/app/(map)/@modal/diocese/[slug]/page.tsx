@@ -4,6 +4,7 @@ import {
   fetchDioceseBySlug,
   fetchDioceses,
   dioceseToBounds,
+  appTodayKey,
 } from "@/utils";
 
 export const revalidate = false;
@@ -26,7 +27,7 @@ export default async function DiocesModalPage({
   }
 
   const bounds = dioceseToBounds(diocese);
-  const today = new Date().toISOString().split("T")[0];
+  const today = appTodayKey();
   const initialSearchResults = await fetchChurchesWithWebsites({
     min_lat: bounds.south,
     max_lat: bounds.north,
