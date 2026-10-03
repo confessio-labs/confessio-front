@@ -1,4 +1,5 @@
 "use client";
+import type { ReactNode } from "react";
 import Image from "next/image";
 import { ChurchCard } from "./ChurchCard";
 import ModalSheetScroller from "./ModalSheet/ModalSheetScroller";
@@ -66,21 +67,40 @@ function ModalSheet({
   if (selectedChurch) return <ChurchCard church={selectedChurch} />;
 
   return (
+    <ChurchListLayout
+      heading={`Horaires de confession ${dateHeadingSuffix(date)}`.trim()}
+      rail={<DateFilterRail />}
+    >
+      {displayedSearchResults?.churches?.map((church) => (
+        <ChurchTile key={church.uuid} church={church} />
+      ))}
+    </ChurchListLayout>
+  );
+}
+
+export function ChurchListLayout({
+  heading,
+  rail,
+  children,
+}: {
+  heading: string;
+  rail: ReactNode;
+  children: ReactNode;
+}) {
+  return (
     <>
       <ModalSheetDragZone>
         <div className="flex flex-col gap-2 py-2">
-          <h4 className="text-base md:text-lg font-semibold text-white px-4">
-            {`Horaires de confession ${dateHeadingSuffix(date)}`.trim()}
-          </h4>
+          <h1 className="text-base md:text-lg font-semibold text-white px-4">
+            {heading}
+          </h1>
         </div>
       </ModalSheetDragZone>
-      <DateFilterRail />
+      {rail}
       <hr className="text-gray-500 mt-2" />
       <ModalSheetScroller draggableAt="top">
         <div className="p-4 space-y-4">
-          {displayedSearchResults?.churches?.map((church) => (
-            <ChurchTile key={church.uuid} church={church} />
-          ))}
+          {children}
           <div className="flex items-center justify-center gap-2 py-4">
             <span className="text-white text-xs">Un projet généreusement encouragé par</span>
             <a href="https://hozana.org" target="_blank" rel="noopener noreferrer">

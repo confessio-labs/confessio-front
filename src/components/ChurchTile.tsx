@@ -25,13 +25,15 @@ const formatTime = (dateString: string) => {
   return `${hours}h${minutes.toString().padStart(2, "0")}`;
 };
 
-const ChurchTile = ({
+type Church = AggregatedSearchResults["churches"][number];
+
+export const ChurchTileView = ({
   church,
+  href,
 }: {
-  church: AggregatedSearchResults["churches"][number];
+  church: Church;
+  href: string;
 }) => {
-  const searchParams = useSearchParams();
-  const query = searchParams.toString();
   const events = church.eventsByDay;
   if (events === undefined || Object.keys(events).length === 0) return null;
   const entries = Object.entries(events);
@@ -41,8 +43,7 @@ const ChurchTile = ({
 
   return (
     <Link
-      href={query ? `/church/${church.uuid}?${query}` : `/church/${church.uuid}`}
-      key={church.uuid}
+      href={href}
       className="w-full bg-paper border border-hairline rounded-2xl px-4 py-3 block transition-shadow hover:shadow-[0_4px_14px_-6px_rgba(36,46,76,0.18)] active:scale-[0.995]"
     >
       <div className="flex items-start gap-3">
@@ -98,4 +99,14 @@ const ChurchTile = ({
     </Link>
   );
 };
+const ChurchTile = ({ church }: { church: Church }) => {
+  const query = useSearchParams().toString();
+  return (
+    <ChurchTileView
+      church={church}
+      href={query ? `/church/${church.uuid}?${query}` : `/church/${church.uuid}`}
+    />
+  );
+};
+
 export default ChurchTile;

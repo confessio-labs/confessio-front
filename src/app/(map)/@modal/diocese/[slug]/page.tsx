@@ -35,5 +35,10 @@ export default async function DiocesModalPage({
     date_filter: today,
   });
 
-  return <ModalSheetWrapper originalSearchResults={initialSearchResults} />;
+  return (
+    <ModalSheetWrapper
+      originalSearchResults={initialSearchResults}
+      heading={`Horaires de confession dans le ${diocese.name.charAt(0).toLowerCase()}${diocese.name.slice(1)}`}
+    />
+  );
 }

@@ -145,6 +145,16 @@ test.describe("SEO smoke", () => {
     });
   }
 
+  test("diocese page renders its church list as HTML", async ({ request }) => {
+    const html = await (await request.get("/diocese/paris")).text();
+    const body = html.replace(/<script[\s\S]*?<\/script>/g, "");
+
+    expect(body).toMatch(/<h1[^>]*>Horaires de confession dans le diocèse de Paris<\/h1>/);
+    expect(body).not.toContain("Loading...");
+    // Paris has confessions every day; an empty list means the fallback broke.
+    expect(body).toMatch(/<a[^>]+href="\/church\/[0-9a-f-]{36}"/);
+  });
+
   for (const uuid of CHURCH_UUIDS) {
     test(`church page: ${uuid}`, async ({ request }) => {
       await assertSeo(request, `/church/${uuid}`, {

@@ -30,9 +30,13 @@ const chipClass = (active: boolean) =>
     ? "shrink-0 rounded-full bg-paper text-deepblue border border-paper px-4 py-2 text-[13px] font-semibold shadow-[0_3px_10px_-3px_rgba(0,0,0,0.45)] transition active:scale-95"
     : "shrink-0 rounded-full bg-white/10 text-white/80 border border-white/20 px-4 py-2 text-[13px] font-semibold transition hover:bg-white/15 active:scale-95";
 
-const DateFilterRail = () => {
-  const { date, setDate } = useDateFilter();
-  const selectedKey = date ? date.toISOString().split("T")[0] : null;
+export const DateFilterRailView = ({
+  selectedKey,
+  onSelect,
+}: {
+  selectedKey: string | null;
+  onSelect: (key: string | null) => void;
+}) => {
   const activeRef = useRef<HTMLButtonElement | null>(null);
 
   const [ty, tm, td] = appTodayKey().split("-").map(Number) as [
@@ -62,7 +66,7 @@ const DateFilterRail = () => {
         <button
           type="button"
           aria-pressed={selectedKey === null}
-          onClick={() => setDate(null)}
+          onClick={() => onSelect(null)}
           className={chipClass(selectedKey === null)}
         >
           Tous les jours
@@ -77,7 +81,7 @@ const DateFilterRail = () => {
               ref={active ? activeRef : undefined}
               type="button"
               aria-pressed={active}
-              onClick={() => setDate(active ? null : new Date(key))}
+              onClick={() => onSelect(active ? null : key)}
               className={chipClass(active)}
             >
               {i === 0 ? (
@@ -100,6 +104,16 @@ const DateFilterRail = () => {
       <div className="pointer-events-none absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-deepblue to-transparent" />
       <div className="pointer-events-none absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-deepblue to-transparent" />
     </div>
+  );
+};
+
+const DateFilterRail = () => {
+  const { date, setDate } = useDateFilter();
+  return (
+    <DateFilterRailView
+      selectedKey={date?.toISOString().split("T")[0] ?? null}
+      onSelect={(key) => setDate(key ? new Date(key) : null)}
+    />
   );
 };
 
