@@ -340,6 +340,13 @@ test.describe("error routes", () => {
     expect(res.status()).toBe(404);
   });
 
+  test("an unknown city slug renders a 404, not a server error", async ({
+    request,
+  }) => {
+    const res = await request.get("/ville/zzz-not-real");
+    expect(res.status()).toBe(404);
+  });
+
   // Known, deferred: src/app/(map)/church/[uuid]/page.tsx calls fetchApi with no
   // notFound() guard, so a bad uuid throws and renders a 500. The diocese route
   // does guard. Carried as finding #4 since the 2026-07-18 QA run.

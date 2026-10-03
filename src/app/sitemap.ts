@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { fetchChurchesWithWebsites, fetchDioceses, SITE_URL } from "@/utils";
+import { CITIES } from "@/cities";
 
 const BASE_URL = SITE_URL;
 
@@ -27,6 +28,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
+  const cityEntries: MetadataRoute.Sitemap = CITIES.map((city) => ({
+    url: `${BASE_URL}/ville/${city.slug}`,
+    lastModified: new Date().toISOString().split("T")[0],
+    changeFrequency: "daily",
+    priority: 0.7,
+  }));
+
   return [
     {
       url: BASE_URL,
@@ -34,6 +42,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1,
     },
     ...dioceseEntries,
+    ...cityEntries,
     ...churchEntries,
   ];
 }

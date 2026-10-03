@@ -1,6 +1,7 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 
 const DIOCESE_SLUGS = ["paris", "lyon", "marseille"] as const;
+const CITY_SLUGS = ["paris", "le-havre", "saint-etienne"] as const;
 
 // Real church UUIDs sampled from the live API. If any of these gets
 // deleted upstream the test will start failing with a 404 — refresh by
@@ -134,6 +135,9 @@ test.describe("SEO smoke", () => {
       dioceseCount,
       "sitemap should expose at least 50 diocese URLs",
     ).toBeGreaterThan(50);
+
+    const cityCount = locs.filter((u) => u.includes("/ville/")).length;
+    expect(cityCount, "sitemap should expose 50 city URLs").toBe(50);
   });
 
   for (const slug of DIOCESE_SLUGS) {
@@ -153,6 +157,23 @@ test.describe("SEO smoke", () => {
     expect(body).not.toContain("Loading...");
     // Paris has confessions every day; an empty list means the fallback broke.
     expect(body).toMatch(/<a[^>]+href="\/church\/[0-9a-f-]{36}"/);
+  });
+
+  for (const slug of CITY_SLUGS) {
+    test(`city page: ${slug}`, async ({ request }) => {
+      await assertSeo(request, `/ville/${slug}`, {
+        titleIncludes: "Confession",
+        descriptionIncludes: "confession",
+      });
+    });
+  }
+
+  test("city page renders its church list as HTML", async ({ request }) => {
+    const html = await (await request.get("/ville/le-havre")).text();
+    const body = html.replace(/<script[\s\S]*?<\/script>/g, "");
+
+    expect(body).toMatch(/<h1[^>]*>Horaires de confession au Havre<\/h1>/);
+    expect(body).not.toContain("Loading...");
   });
 
   for (const uuid of CHURCH_UUIDS) {

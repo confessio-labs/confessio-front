@@ -6,7 +6,8 @@ mobile QA checklist run before each prod release.
 ## Automated SEO tests
 
 Playwright smoke tests covering the home page, `sitemap.xml`, three
-diocese pages (`paris`, `lyon`, `marseille`), and three church pages.
+diocese pages (`paris`, `lyon`, `marseille`), three city pages
+(`paris`, `le-havre`, `saint-etienne`), and three church pages.
 For each they assert: HTTP 200, a non-empty `<title>` and meta
 description, OG tags, no Next.js error boundary in the HTML, and
 parseable JSON-LD where expected. Source: `tests/seo.spec.ts`.

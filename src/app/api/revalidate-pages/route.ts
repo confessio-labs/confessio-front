@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { fetchDioceses } from "@/utils";
+import { CITIES } from "@/cities";
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -12,6 +13,11 @@ export async function GET(request: Request) {
   for (const diocese of dioceses) {
     revalidatePath(`/diocese/${diocese.slug}`);
   }
+  for (const city of CITIES) {
+    revalidatePath(`/ville/${city.slug}`);
+  }
 
-  return Response.json({ revalidated: dioceses.length });
+  return Response.json({
+    revalidated: { dioceses: dioceses.length, cities: CITIES.length },
+  });
 }
