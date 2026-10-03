@@ -3,18 +3,21 @@ import { AggregatedSearchResults } from "@/utils";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+// Building a formatter is costly; toLocaleDateString builds one on every call,
+// which adds up across every event of every tile.
+const dayLabelFormat = new Intl.DateTimeFormat("fr-FR", {
+  weekday: "short",
+  day: "numeric",
+});
+
 const formatDayLabel = (dateString: string) => {
-  const date = new Date(dateString);
-  const parts = date
-    .toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" })
+  const parts = dayLabelFormat
+    .format(new Date(dateString))
     .replace(".", "")
     .split(" ");
   const weekday = parts[0] ?? "";
   const day = parts.slice(1).join(" ");
-  return {
-    weekday: weekday.charAt(0).toUpperCase() + weekday.slice(1),
-    day,
-  };
+  return `${weekday.charAt(0).toUpperCase() + weekday.slice(1)} ${day}`;
 };
 
 const formatTime = (dateString: string) => {
@@ -58,8 +61,7 @@ export const ChurchTileView = ({
         {soleEvent && (
           <div className="shrink-0 flex flex-col items-center gap-1.5">
             <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-deepblue/55">
-              {formatDayLabel(soleEvent.start).weekday}{" "}
-              {formatDayLabel(soleEvent.start).day}
+              {formatDayLabel(soleEvent.start)}
             </span>
             <span className="tabular inline-flex items-center justify-center rounded-full bg-deepblue text-white px-3 py-1 text-[13px] font-semibold min-w-[54px]">
               {formatTime(soleEvent.start)}
@@ -80,8 +82,7 @@ export const ChurchTileView = ({
               className="flex flex-col items-center gap-1.5 shrink-0"
             >
               <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-deepblue/55">
-                {formatDayLabel(event.start).weekday}{" "}
-                {formatDayLabel(event.start).day}
+                {formatDayLabel(event.start)}
               </span>
               <span
                 className={
