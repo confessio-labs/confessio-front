@@ -1,20 +1,14 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { SearchInput } from "@/components/SearchInput";
-import {
-  type AutocompleteResults,
-  type Bounds,
-  fetchApi,
-  parseBoundsParam,
-} from "@/utils";
+import { type Bounds, parseBoundsParam } from "@/utils";
 import { useEffect, useState } from "react";
-import { useDebounce } from "use-debounce";
 import { Map as LeafletMap } from "leaflet";
 import { CrosshairSimpleIcon, CircleNotchIcon } from "@phosphor-icons/react";
 import dynamic from "next/dynamic";
 import { useMapBounds } from "@/hooks/useMapBounds";
 import { useSearchResults } from "@/hooks/useSearchResults";
+import { useAutocomplete } from "@/hooks/useAutocomplete";
 import { usePathname, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
 import { clearNavigationPending } from "@/lib/navigationLock";
@@ -28,14 +22,6 @@ const Map = dynamic(() => import("@/components/Map/Map"), {
   ),
   ssr: false,
 });
-
-// Stands in until the first autocomplete query settles.
-const EMPTY_AUTOCOMPLETE_RESULTS: AutocompleteResults = {
-  query: "",
-  latitude: null,
-  longitude: null,
-  items: [],
-};
 
 export function HomePage({
   serverBounds,
@@ -54,8 +40,6 @@ export function HomePage({
     clearNavigationPending();
   }, [pathname]);
 
-  const [debouncedSearchQuery] = useDebounce(searchQuery, 300);
-
   const [currentPosition, setCurrentPosition] = useState<{
     latitude: number;
     longitude: number;
@@ -65,22 +49,8 @@ export function HomePage({
 
   const mapCenter = map?.getCenter();
 
-  const { data, isLoading, isFetching } = useQuery<AutocompleteResults>({
-    queryKey: ["mapData", debouncedSearchQuery],
-    queryFn: async () => {
-      const latitude = mapCenter?.lat ?? null;
-      const longitude = mapCenter?.lng ?? null;
-      const request = { query: debouncedSearchQuery, latitude, longitude };
-      if (debouncedSearchQuery.length === 0) return { ...request, items: [] };
-      const params = new URLSearchParams({ query: debouncedSearchQuery });
-      if (latitude !== null && longitude !== null) {
-        params.set("latitude", latitude.toString());
-        params.set("longitude", longitude.toString());
-      }
-      return { ...request, items: await fetchApi(`/autocomplete?${params}`) };
-    },
-    placeholderData: (previousData) => previousData,
-  });
+  const { results: autocompleteResults, isLoading: isAutocompleteLoading } =
+    useAutocomplete(searchQuery, mapCenter);
 
   const { data: searchResults } = useSearchResults();
 
@@ -125,12 +95,8 @@ export function HomePage({
     <>
       <SearchInput
         map={map}
-        isLoading={
-          isLoading ||
-          isFetching ||
-          searchQuery !== debouncedSearchQuery
-        }
-        results={data ?? EMPTY_AUTOCOMPLETE_RESULTS}
+        isLoading={isAutocompleteLoading}
+        results={autocompleteResults}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
       />

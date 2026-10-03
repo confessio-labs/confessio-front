@@ -1,4 +1,12 @@
-import { fetchDioceseBySlug, fetchDioceses, dioceseToBounds, boundsToString } from "@/utils";
+import {
+  fetchDioceseBySlug,
+  fetchDioceses,
+  fetchDioceseTodaySnapshot,
+  dioceseToBounds,
+  boundsToString,
+  inDioceseLabel,
+} from "@/utils";
+import { buildDioceseJsonLd } from "@/lib/jsonld";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import DioceseRedirect from "./DioceseRedirect";
@@ -19,8 +27,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const diocese = await fetchDioceseBySlug(slug);
   if (!diocese) return {};
 
-  const title = `Confession dans le diocèse de ${diocese.name} — horaires et lieux`;
-  const description = `Trouvez les horaires de confession dans le diocèse de ${diocese.name}. Lieux, horaires et informations pratiques pour se confesser près de chez vous.`;
+  const title = `Confession ${inDioceseLabel(diocese)} — horaires et lieux`;
+  const description = `Trouvez les horaires de confession ${inDioceseLabel(diocese)}. Lieux, horaires et informations pratiques pour se confesser près de chez vous.`;
 
   return {
     title,
@@ -39,8 +47,17 @@ export default async function DiocesePage({ params }: Props) {
   const diocese = await fetchDioceseBySlug(slug);
   if (!diocese) return notFound();
 
-  const bounds = dioceseToBounds(diocese);
-  const boundsStr = boundsToString(bounds);
+  const boundsStr = boundsToString(dioceseToBounds(diocese));
+  const { churches } = await fetchDioceseTodaySnapshot(diocese);
+  const jsonLd = buildDioceseJsonLd(inDioceseLabel(diocese), churches);
 
-  return <DioceseRedirect boundsStr={boundsStr} />;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <DioceseRedirect boundsStr={boundsStr} />
+    </>
+  );
 }

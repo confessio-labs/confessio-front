@@ -1,10 +1,9 @@
 import ModalSheetWrapper from "@/components/ModalSheet/ModalSheetWrapper";
 import {
-  fetchChurchesWithWebsites,
   fetchDioceseBySlug,
   fetchDioceses,
-  dioceseToBounds,
-  appTodayKey,
+  fetchDioceseTodaySnapshot,
+  inDioceseLabel,
 } from "@/utils";
 
 export const revalidate = false;
@@ -26,20 +25,12 @@ export default async function DiocesModalPage({
     return <ModalSheetWrapper originalSearchResults={{ aggregations: [], churches: [] }} />;
   }
 
-  const bounds = dioceseToBounds(diocese);
-  const today = appTodayKey();
-  const initialSearchResults = await fetchChurchesWithWebsites({
-    min_lat: bounds.south,
-    max_lat: bounds.north,
-    min_lng: bounds.west,
-    max_lng: bounds.east,
-    date_filter: today,
-  });
+  const initialSearchResults = await fetchDioceseTodaySnapshot(diocese);
 
   return (
     <ModalSheetWrapper
       originalSearchResults={initialSearchResults}
-      heading={`Horaires de confession dans le ${diocese.name.charAt(0).toLowerCase()}${diocese.name.slice(1)}`}
+      heading={`Horaires de confession ${inDioceseLabel(diocese)}`}
     />
   );
 }

@@ -142,10 +142,20 @@ test.describe("SEO smoke", () => {
 
   for (const slug of DIOCESE_SLUGS) {
     test(`diocese page: ${slug}`, async ({ request }) => {
-      await assertSeo(request, `/diocese/${slug}`, {
+      const path = `/diocese/${slug}`;
+      await assertSeo(request, path, {
         titleIncludes: "diocèse",
         descriptionIncludes: "confession",
+        requireJsonLd: true,
       });
+
+      const html = await (await request.get(path)).text();
+      expect(html, `${path} <title> repeats "diocèse"`).not.toMatch(
+        /diocèse d[e']\s*diocèse/i,
+      );
+      expect(html, `${path} missing diocese ItemList JSON-LD`).toContain(
+        '"@type":"ItemList"',
+      );
     });
   }
 
