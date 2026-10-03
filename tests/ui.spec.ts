@@ -235,6 +235,32 @@ test.describe("navigation modal", () => {
   });
 });
 
+test.describe("moderator mode", () => {
+  test("tapping the version five times reveals the Django parish link", async ({
+    page,
+  }) => {
+    await openChurchCard(page);
+    const parishLink = page.locator(
+      `a[href="https://confessio.fr/paroisse/${churchDetails.website.uuid}"]`,
+    );
+    await expect(parishLink).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Ouvrir le menu" }).click();
+    const version = page.getByTestId("app-version");
+    for (let i = 0; i < 4; i++) await version.click();
+    await expect(page.getByRole("status")).not.toHaveText(/activé/);
+    await version.click();
+    await expect(page.getByRole("status")).toHaveText("Mode modérateur activé");
+    await page.keyboard.press("Escape");
+
+    await expect(parishLink).toBeVisible();
+    await expect(parishLink).toHaveAttribute("rel", /nofollow/);
+
+    await page.reload();
+    await expect(parishLink).toBeVisible();
+  });
+});
+
 test.describe("date handling", () => {
   // 0696d74: the prod server runs UTC while visitors are in Paris, so "today"
   // must not depend on the runtime zone or the SSR'd date UI mismatches on

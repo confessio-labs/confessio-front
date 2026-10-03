@@ -22,8 +22,11 @@ import {
   NavigationArrowIcon,
   SealCheckIcon,
   WarningCircleIcon,
+  WrenchIcon,
   XIcon,
 } from "@phosphor-icons/react";
+import { useAtomValue } from "jotai";
+import { isModeratorModeAtom } from "@/atoms";
 
 type EventOut = components["schemas"]["EventOut"];
 
@@ -146,6 +149,7 @@ const ChurchCard = ({
 
   const searchParams = useSearchParams();
   const query = searchParams.toString();
+  const isModeratorMode = useAtomValue(isModeratorModeAtom);
 
   useEffect(() => {
     const prev = document.title;
@@ -221,29 +225,51 @@ const ChurchCard = ({
             </span>
           </div>
         ) : (
-          churchDetails?.website?.home_url && (
-            <div className="px-5 pt-3 pb-1 flex">
-              <Link
-                href={churchDetails.website.home_url}
-                target="_blank"
-                className="inline-flex items-center gap-1.5 text-[12px] font-medium text-white/75 hover:text-white transition-colors"
-                onClick={() =>
-                  posthog.capture("parish_website_clicked", {
-                    church_uuid: church.uuid,
-                    church_name: church.name,
-                    parish_url: churchDetails.website?.home_url,
-                  })
-                }
+          <>
+            {churchDetails?.website?.home_url && (
+              <div className="px-5 pt-3 pb-1 flex">
+                <Link
+                  href={churchDetails.website.home_url}
+                  target="_blank"
+                  className="inline-flex items-center gap-1.5 text-[12px] font-medium text-white/75 hover:text-white transition-colors"
+                  onClick={() =>
+                    posthog.capture("parish_website_clicked", {
+                      church_uuid: church.uuid,
+                      church_name: church.name,
+                      parish_url: churchDetails.website?.home_url,
+                    })
+                  }
+                >
+                  <span>Paroisse de {church.name}</span>
+                  <ArrowSquareOutIcon
+                    size={13}
+                    weight="bold"
+                    className="shrink-0"
+                  />
+                </Link>
+              </div>
+            )}
+            {isModeratorMode && churchDetails?.website?.uuid && (
+              <div
+                className={`px-5 pb-1 flex ${churchDetails.website.home_url ? "pt-1.5" : "pt-3"}`}
               >
-                <span>Paroisse de {church.name}</span>
-                <ArrowSquareOutIcon
-                  size={13}
-                  weight="bold"
-                  className="shrink-0"
-                />
-              </Link>
-            </div>
-          )
+                <Link
+                  href={`https://confessio.fr/paroisse/${churchDetails.website.uuid}`}
+                  target="_blank"
+                  rel="nofollow noopener"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/14 bg-white/7 px-2.5 py-1 text-[11.5px] font-medium text-white/75 hover:bg-white/12 hover:text-white transition-colors"
+                >
+                  <WrenchIcon size={12} weight="bold" className="shrink-0" />
+                  <span>Fiche Confessio</span>
+                  <ArrowSquareOutIcon
+                    size={11}
+                    weight="bold"
+                    className="shrink-0"
+                  />
+                </Link>
+              </div>
+            )}
+          </>
         )}
         <div className="pb-6 pt-2">
           {isLoading && (
