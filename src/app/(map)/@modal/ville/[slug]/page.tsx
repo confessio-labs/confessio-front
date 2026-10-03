@@ -2,7 +2,7 @@ import ModalSheetWrapper from "@/components/ModalSheet/ModalSheetWrapper";
 import { fetchChurchesWithWebsites, appTodayKey } from "@/utils";
 import { CITIES, cityLocative, findCityBySlug } from "@/cities";
 
-export const revalidate = false;
+export const revalidate = 86400;
 
 export function generateStaticParams() {
   return CITIES.map((c) => ({ slug: c.slug }));

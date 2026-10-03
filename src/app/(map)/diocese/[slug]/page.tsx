@@ -11,7 +11,7 @@ import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import DioceseRedirect from "./DioceseRedirect";
 
-export const revalidate = false;
+export const revalidate = 86400;
 
 export async function generateStaticParams() {
   const dioceses = await fetchDioceses();

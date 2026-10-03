@@ -6,7 +6,7 @@ import {
   inDioceseLabel,
 } from "@/utils";
 
-export const revalidate = false;
+export const revalidate = 86400;
 
 export async function generateStaticParams() {
   const dioceses = await fetchDioceses();

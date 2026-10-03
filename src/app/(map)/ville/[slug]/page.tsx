@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import DioceseRedirect from "../../diocese/[slug]/DioceseRedirect";
 
-export const revalidate = false;
+export const revalidate = 86400;
 
 export function generateStaticParams() {
   return CITIES.map((c) => ({ slug: c.slug }));

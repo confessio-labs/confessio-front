@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { fetchDioceseBySlug, fetchDioceses, dioceseToBounds } from "@/utils";
 import { HomePage } from "../../default";
 
-export const revalidate = false;
+export const revalidate = 86400;
 
 export async function generateStaticParams() {
   const dioceses = await fetchDioceses();
