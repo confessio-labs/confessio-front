@@ -1,7 +1,8 @@
 "use client";
 import { AggregatedSearchResults } from "@/utils";
+import { useMapRouter } from "@/hooks/useMapRouter";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { memo, type MouseEvent } from "react";
 
 // Building a formatter is costly; toLocaleDateString builds one on every call,
 // which adds up across every event of every tile.
@@ -33,9 +34,11 @@ type Church = AggregatedSearchResults["churches"][number];
 export const ChurchTileView = ({
   church,
   href,
+  onClick,
 }: {
   church: Church;
   href: string;
+  onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) => {
   const events = church.eventsByDay;
   if (events === undefined || Object.keys(events).length === 0) return null;
@@ -47,6 +50,7 @@ export const ChurchTileView = ({
   return (
     <Link
       href={href}
+      onClick={onClick}
       className="w-full bg-paper border border-hairline rounded-2xl px-4 py-3 block transition-shadow hover:shadow-[0_4px_14px_-6px_rgba(36,46,76,0.18)] active:scale-[0.995]"
     >
       <div className="flex items-start gap-3">
@@ -101,13 +105,24 @@ export const ChurchTileView = ({
   );
 };
 const ChurchTile = ({ church }: { church: Church }) => {
-  const query = useSearchParams().toString();
-  return (
-    <ChurchTileView
-      church={church}
-      href={query ? `/church/${church.uuid}?${query}` : `/church/${church.uuid}`}
-    />
-  );
+  const router = useMapRouter();
+  const href = `/church/${church.uuid}`;
+  // The query (bounds, date) is read at click time: subscribing to search
+  // params would re-render every tile on every map pan, since bounds live in
+  // the URL. Modified clicks fall through to the plain href.
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+    router.push(`${href}${window.location.search}`);
+  };
+  return <ChurchTileView church={church} href={href} onClick={handleClick} />;
 };
 
-export default ChurchTile;
+export default memo(ChurchTile);

@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChurchMarker, AggregationMarker, CurrentPositionMarker } from "./Markers";
+import { useDateFilter } from "@/hooks/useDateFilter";
 
 const getAggregationUuid = (
   aggregation: components["schemas"]["SearchResultOut"]["aggregations"][number],
@@ -41,6 +42,7 @@ const Map = ({
   const searchParams = useSearchParams();
   const selectedChurchUuid = pathname?.match(/\/church\/([^/]+)/)?.[1];
   const centerParam = searchParams.get("center");
+  const { date } = useDateFilter();
 
   const selectedChurchInResults = searchResults?.churches.some(
     (c) => c.uuid === selectedChurchUuid,
@@ -168,6 +170,7 @@ const Map = ({
               map={mapInstance}
               church={church}
               selected={church.uuid === selectedChurchUuid}
+              dateFilterActive={date !== null}
             />
           ))}
           {selectedChurchDetails && !selectedChurchInResults && (
@@ -179,6 +182,7 @@ const Map = ({
                 eventsByDay: computeEventsByDay(selectedChurchDetails.events),
               }}
               selected
+              dateFilterActive={date !== null}
             />
           )}
           {searchResults?.aggregations.map((aggregation) => (
