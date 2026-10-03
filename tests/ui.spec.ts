@@ -359,6 +359,37 @@ test.describe("date handling", () => {
   }
 });
 
+test.describe("map", () => {
+  // Deliberately unstubbed and outside Paris: the fixture church sits inside the
+  // default Paris view, so it can't tell "centered on the church" from "never moved".
+  const LYON_CATHEDRAL_UUID = "943cc65e-1c38-4bc1-b28d-1acbdda797e0";
+
+  test("a direct church link opens the map on that church", async ({
+    page,
+    request,
+  }) => {
+    const church = await (
+      await request.get(`${API}/church/${LYON_CATHEDRAL_UUID}`)
+    ).json();
+
+    await page.goto(`/church/${LYON_CATHEDRAL_UUID}`);
+
+    await expect
+      .poll(() => {
+        const param = new URL(page.url()).searchParams.get("bounds");
+        if (!param) return false;
+        const [south, west, north, east] = param.split(",").map(Number);
+        return (
+          south! < church.latitude &&
+          church.latitude < north! &&
+          west! < church.longitude &&
+          church.longitude < east!
+        );
+      })
+      .toBe(true);
+  });
+});
+
 test.describe("error routes", () => {
   test("an unknown diocese slug renders a 404, not a server error", async ({
     request,

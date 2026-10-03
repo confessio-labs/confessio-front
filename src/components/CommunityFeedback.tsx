@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import posthog from "posthog-js";
 import { APP_TIME_ZONE, fetchApi } from "@/utils";
 import { useKeyboardOverlap } from "@/hooks/useKeyboardOverlap";
-import { useSheetRef } from "./ModalSheet/SheetContext";
+import { TOP_SNAP, useSheetRef } from "./ModalSheet/SheetContext";
 import {
   CameraIcon,
   CaretRightIcon,
@@ -131,6 +131,33 @@ const Replies = ({ nodes }: { nodes: CommentNode[] }) => (
     ))}
   </div>
 );
+
+// Not scrollIntoView: it also scrolls every scrollable ancestor, including
+// react-modal-sheet's fixed `overflow: hidden` wrapper. While the sheet is
+// translated off-screen that wrapper has scroll room, and once scrolled it
+// never resets — every snap point then renders shifted up.
+// Scrolls only the panel's own scroller so the panel ends at the bottom of the
+// screen once the sheet settles at its top snap. The sheet is bottom-anchored
+// and only translated, so even there its bottom (1 - TOP_SNAP) runs
+// off-screen. Only rect differences are used, so the in-flight snap animation
+// (a transform shared by panel and scroller) doesn't skew the result.
+const revealAtTopSnap = (panel: HTMLElement | null) => {
+  let scroller = panel?.parentElement ?? null;
+  while (scroller && !/auto|scroll/.test(getComputedStyle(scroller).overflowY))
+    scroller = scroller.parentElement;
+  if (!panel || !scroller) return;
+  const sheetEl = scroller.closest(".react-modal-sheet-container");
+  const sheetHeight = sheetEl?.getBoundingClientRect().height ?? 0;
+  const hiddenBelow = sheetHeight - Math.round(TOP_SNAP * sheetHeight);
+  const overshoot =
+    panel.getBoundingClientRect().bottom -
+    scroller.getBoundingClientRect().bottom +
+    hiddenBelow;
+  scroller.scrollTo({
+    top: scroller.scrollTop + overshoot,
+    behavior: "smooth",
+  });
+};
 
 const KindChip = ({
   label,
@@ -266,7 +293,7 @@ const CommunityFeedback = ({
   const [step, setStep] = useState<Step>("root");
   const [comment, setComment] = useState("");
   const [email, setEmail] = useState("");
-  const [validity, setValidity] = useState<Validity>("month");
+  const [validity, setValidity] = useState<Validity>("year");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -407,7 +434,7 @@ const CommunityFeedback = ({
   const resetDraft = () => {
     setComment("");
     setEmail("");
-    setValidity("month");
+    setValidity("year");
     setPhotoFile(null);
     setPhotoError(null);
     postReport.reset();
@@ -464,7 +491,7 @@ const CommunityFeedback = ({
   useEffect(() => {
     if (keyboardOverlap === 0) return;
     sheetRef?.current?.snapTo(0);
-    panelRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    revealAtTopSnap(panelRef.current);
   }, [keyboardOverlap, sheetRef]);
 
   const inValidateBranch = step === "validate" || step === "sent-good";
@@ -475,7 +502,7 @@ const CommunityFeedback = ({
   useEffect(() => {
     if (!isOpen) return;
     sheetRef?.current?.snapTo(0);
-    panelRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    revealAtTopSnap(panelRef.current);
   }, [isOpen, sheetRef]);
 
   const openFork = () => {

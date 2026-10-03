@@ -49,22 +49,16 @@ const Map = ({
   );
 
   // Fetch selected church details to center map and ensure marker stays visible
-  const { data: selectedChurchDetails } = useQuery<
-    components["schemas"]["ChurchDetails"]
-  >({
-    queryKey: ["churchDetails", selectedChurchUuid],
-    queryFn: () => fetchApi(`/church/${selectedChurchUuid}`),
-    enabled: !!selectedChurchUuid,
-  });
+  const { data: selectedChurchDetails, isError: selectedChurchFailed } =
+    useQuery<components["schemas"]["ChurchDetails"]>({
+      queryKey: ["churchDetails", selectedChurchUuid],
+      queryFn: () => fetchApi(`/church/${selectedChurchUuid}`),
+      enabled: !!selectedChurchUuid,
+    });
 
-  useEffect(() => {
-    if (mapInstanceRef.current && selectedChurchDetails && !initialBounds) {
-      mapInstanceRef.current.setView(
-        [selectedChurchDetails.latitude, selectedChurchDetails.longitude],
-        16,
-      );
-    }
-  }, [selectedChurchDetails, initialBounds]);
+  // Latched on first render: once the map exists, its moveend sync writes
+  // ?bounds= into the URL, so initialBounds stops meaning "landed without bounds".
+  const [startsOnChurch] = useState(() => !initialBounds && !!selectedChurchUuid);
 
   // Center map when a ?center=lat,lng param is present (from search/marker click)
   useEffect(() => {
@@ -89,24 +83,35 @@ const Map = ({
 
   useEffect(() => {
     if (mapRef.current && !mapInstanceRef.current) {
-      const startingBounds = initialBounds || {
-        north: 48.902,
-        west: 2.25,
-        south: 48.815,
-        east: 2.42,
-      };
+      const waitingForChurch =
+        startsOnChurch && !selectedChurchDetails && !selectedChurchFailed;
+      if (waitingForChurch) return;
 
       const map = L.map(mapRef.current, {
         zoomControl: false,
       });
-      map.fitBounds([
-        [startingBounds.south, startingBounds.west],
-        [startingBounds.north, startingBounds.east],
-      ]);
+      if (startsOnChurch && selectedChurchDetails) {
+        map.setActiveArea(getActiveAreaStyles());
+        map.setView(
+          [selectedChurchDetails.latitude, selectedChurchDetails.longitude],
+          16,
+        );
+      } else {
+        const startingBounds = initialBounds || {
+          north: 48.902,
+          west: 2.25,
+          south: 48.815,
+          east: 2.42,
+        };
+        map.fitBounds([
+          [startingBounds.south, startingBounds.west],
+          [startingBounds.north, startingBounds.east],
+        ]);
+        map.setActiveArea(getActiveAreaStyles());
+      }
 
       mapInstanceRef.current = map;
       setMapInstance(map);
-      map.setActiveArea(getActiveAreaStyles());
       setMap(map);
 
       // Expose map instance for E2E testing
@@ -137,7 +142,14 @@ const Map = ({
         setTilesReady(true);
       }
     }
-  }, [setMap, initialBounds, getActiveAreaStyles]);
+  }, [
+    setMap,
+    initialBounds,
+    getActiveAreaStyles,
+    startsOnChurch,
+    selectedChurchDetails,
+    selectedChurchFailed,
+  ]);
 
   useEffect(() => {
     const handleResize = () => {
