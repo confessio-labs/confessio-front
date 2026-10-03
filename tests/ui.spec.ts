@@ -312,13 +312,14 @@ test.describe("date handling", () => {
       // The rail is "Tous les jours", "Aujourd'hui", "Demain", then
       // weekday + day-of-month. The third dated chip pins which day the rail
       // thinks it is — Paris-anchored, or the browser's own zone.
-      const chips = await page.locator("[aria-pressed]").allTextContents();
-      expect(chips.slice(0, 3)).toEqual([
-        "Tous les jours",
-        "Aujourd'hui",
-        "Demain",
-      ]);
-      expect(chips[3]).toContain(thirdChipDay);
+      // The server renders on the real clock, so the rail first shows real
+      // dates and only switches to the frozen ones once hydration re-renders
+      // it: these assertions must retry, not read the DOM once.
+      const chips = page.locator("[aria-pressed]");
+      await expect(chips.nth(3)).toContainText(thirdChipDay);
+      await expect(chips.nth(0)).toHaveText("Tous les jours");
+      await expect(chips.nth(1)).toHaveText("Aujourd'hui");
+      await expect(chips.nth(2)).toHaveText("Demain");
 
       await context.close();
     });
