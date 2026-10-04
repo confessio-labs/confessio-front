@@ -1,13 +1,19 @@
 import { boundsToString } from "@/utils";
-import { CITIES, cityLocative, findCityBySlug } from "@/cities";
+import {
+  cityLocative,
+  cityToBounds,
+  fetchCities,
+  fetchCityBySlug,
+} from "@/cities";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import DioceseRedirect from "../../diocese/[slug]/DioceseRedirect";
 
 export const revalidate = 86400;
 
-export function generateStaticParams() {
-  return CITIES.map((c) => ({ slug: c.slug }));
+export async function generateStaticParams() {
+  const cities = await fetchCities();
+  return cities.map((c) => ({ slug: c.slug }));
 }
 
 type Props = {
@@ -16,7 +22,7 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const city = findCityBySlug(slug);
+  const city = await fetchCityBySlug(slug);
   if (!city) return {};
 
   const where = cityLocative(city.name);
@@ -37,8 +43,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CityPage({ params }: Props) {
   const { slug } = await params;
-  const city = findCityBySlug(slug);
+  const city = await fetchCityBySlug(slug);
   if (!city) return notFound();
 
-  return <DioceseRedirect boundsStr={boundsToString(city.bounds)} />;
+  return <DioceseRedirect boundsStr={boundsToString(cityToBounds(city))} />;
 }

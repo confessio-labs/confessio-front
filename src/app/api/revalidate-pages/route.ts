@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { fetchDioceses } from "@/utils";
-import { CITIES } from "@/cities";
+import { fetchCities } from "@/cities";
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -9,10 +9,13 @@ export async function GET(request: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const dioceses = await fetchDioceses();
+  const [dioceses, cities] = await Promise.all([
+    fetchDioceses(),
+    fetchCities(),
+  ]);
   const paths = [
     ...dioceses.map((diocese) => `/diocese/${diocese.slug}`),
-    ...CITIES.map((city) => `/ville/${city.slug}`),
+    ...cities.map((city) => `/ville/${city.slug}`),
   ];
 
   for (const path of paths) {
@@ -38,6 +41,6 @@ export async function GET(request: Request) {
   });
 
   return Response.json({
-    revalidated: { dioceses: dioceses.length, cities: CITIES.length },
+    revalidated: { dioceses: dioceses.length, cities: cities.length },
   });
 }

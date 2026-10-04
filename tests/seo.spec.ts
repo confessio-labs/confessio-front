@@ -137,7 +137,7 @@ test.describe("SEO smoke", () => {
     ).toBeGreaterThan(50);
 
     const cityCount = locs.filter((u) => u.includes("/ville/")).length;
-    expect(cityCount, "sitemap should expose 50 city URLs").toBe(50);
+    expect(cityCount, "sitemap should expose 100 city URLs").toBe(100);
   });
 
   for (const slug of DIOCESE_SLUGS) {

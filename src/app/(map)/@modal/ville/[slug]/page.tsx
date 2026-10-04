@@ -1,11 +1,12 @@
 import ModalSheetWrapper from "@/components/ModalSheet/ModalSheetWrapper";
 import { fetchChurchesWithWebsites, appTodayKey } from "@/utils";
-import { CITIES, cityLocative, findCityBySlug } from "@/cities";
+import { cityLocative, cityToBounds, fetchCities, fetchCityBySlug } from "@/cities";
 
 export const revalidate = 86400;
 
-export function generateStaticParams() {
-  return CITIES.map((c) => ({ slug: c.slug }));
+export async function generateStaticParams() {
+  const cities = await fetchCities();
+  return cities.map((c) => ({ slug: c.slug }));
 }
 
 export default async function CityModalPage({
@@ -14,13 +15,13 @@ export default async function CityModalPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const city = findCityBySlug(slug);
+  const city = await fetchCityBySlug(slug);
 
   if (!city) {
     return <ModalSheetWrapper originalSearchResults={{ aggregations: [], churches: [] }} />;
   }
 
-  const { bounds } = city;
+  const bounds = cityToBounds(city);
   const initialSearchResults = await fetchChurchesWithWebsites({
     min_lat: bounds.south,
     max_lat: bounds.north,
