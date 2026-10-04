@@ -26,7 +26,7 @@ export default function HomeDraftPage() {
           src="/home-hero.png"
           alt=""
           fill
-          priority
+          preload
           sizes="100vw"
           className="object-cover"
         />
@@ -37,7 +37,7 @@ export default function HomeDraftPage() {
             alt="Logo de Confessio"
             width={64}
             height={64}
-            priority
+            preload
           />
           <h1 className="mt-4 text-[40px] leading-tight font-semibold tracking-[-0.01em] text-white">
             Confessio
