@@ -50,6 +50,7 @@ export const ChurchTileView = ({
   return (
     <Link
       href={href}
+      prefetch={false}
       onClick={onClick}
       className="w-full bg-paper border border-hairline rounded-2xl px-4 py-3 block transition-shadow hover:shadow-[0_4px_14px_-6px_rgba(36,46,76,0.18)] active:scale-[0.995]"
     >
