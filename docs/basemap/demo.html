@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confessio Tiles Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/pmtiles@4.5.0/dist/pmtiles.js"></script>
+<script src="https://unpkg.com/@protomaps/basemaps@5.7.2/dist/basemaps.js"></script>
+<style>
+  :root {
+    --color-deepblue: #242e4c;
+    --color-lightblue: #005cdf;
+    --color-paper: #f7f4ee;
+    --color-hairline: #e7e3db;
+    --color-ink: #1b2236;
+  }
+  html, body { margin: 0; height: 100%; background: var(--color-paper); font-family: "DM Sans", system-ui, sans-serif; color: var(--color-ink); }
+  #map { position: absolute; inset: 0; }
+
+  .panel {
+    position: absolute; top: 16px; left: 16px; z-index: 2;
+    background: #fff; border-radius: 16px; padding: 12px;
+    box-shadow: 0 2px 10px rgba(36, 46, 76, 0.18);
+    display: flex; flex-direction: column; gap: 10px; max-width: calc(100vw - 56px);
+  }
+  .panel h1 { margin: 0 4px; font-size: 14px; font-weight: 700; letter-spacing: -0.01em; color: var(--color-deepblue); }
+  .seg { display: flex; flex-wrap: wrap; gap: 4px; background: var(--color-paper); border: 1px solid var(--color-hairline); border-radius: 9999px; padding: 3px; }
+  .seg button {
+    font: 500 13px "DM Sans", sans-serif; border: 0; background: transparent; color: var(--color-deepblue);
+    padding: 6px 12px; border-radius: 9999px; cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--color-deepblue); color: #fff; }
+  .toggles { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: rgba(36, 46, 76, 0.75); margin: 0 4px; }
+  .toggles label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .note { font-size: 12px; color: rgba(36, 46, 76, 0.55); margin: 0 4px; }
+
+  .church-marker {
+    position: relative; background: var(--color-lightblue); height: 24px; color: #fff; width: max-content;
+    font-weight: 600; font-size: 13px; min-width: 44px; padding: 0 10px; box-sizing: border-box;
+    white-space: nowrap; border-radius: 15px; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1.5px 4px rgba(36, 46, 76, 0.22);
+    font-variant-numeric: tabular-nums; letter-spacing: -0.01em; margin-bottom: 6px;
+  }
+  .church-marker::after {
+    content: ""; position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%);
+    border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 7px solid var(--color-lightblue);
+  }
+  .church-marker.selected { background: var(--color-deepblue); height: 28px; font-size: 14px; min-width: 50px; padding: 0 12px; box-shadow: 0 2.5px 7px rgba(36, 46, 76, 0.38); }
+  .church-marker.selected::after { border-top-color: var(--color-deepblue); }
+  .empty-church-marker { width: 12px; height: 12px; background: #a7b4d6; border-radius: 9999px; border: 1.5px solid #fff; box-shadow: 0 1px 3px rgba(36, 46, 76, 0.2); box-sizing: border-box; }
+  .aggregation-marker-count {
+    background: var(--color-deepblue); height: 28px; width: 28px; border-radius: 9999px; display: flex;
+    align-items: center; justify-content: center; color: #fff; font-weight: 600; font-size: 12px;
+    font-variant-numeric: tabular-nums; border: 1.5px solid #fff; box-shadow: 0 2px 5px rgba(36, 46, 76, 0.22); box-sizing: border-box;
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="panel">
+  <h1>Fond de carte</h1>
+  <div class="seg" role="group">
+    <button data-style="confessio" aria-pressed="true">Confessio</button>
+    <button data-style="light" aria-pressed="false">Protomaps light</button>
+    <button data-style="maptiler" aria-pressed="false">MapTiler (actuel)</button>
+  </div>
+  <h1>Bâtiments</h1>
+  <div class="seg" role="group" id="buildings">
+    <button data-buildings="flat" aria-pressed="false">Plat</button>
+    <button data-buildings="shadow" aria-pressed="false">Ombre</button>
+    <button data-buildings="3d" aria-pressed="true">3D</button>
+  </div>
+  <div class="toggles">
+    <label><input type="checkbox" id="pois"> Points d'intérêt</label>
+    <label><input type="checkbox" id="pins" checked> Épingles</label>
+  </div>
+  <div class="note" id="note"></div>
+</div>
+
+<script>
+// The public daily builds send no CORS headers, so the demo reads a local
+// extract: pmtiles extract https://build.protomaps.com/<date>.pmtiles paris.pmtiles --bbox=2.15,48.75,2.55,48.95
+const ARCHIVE = new URL("paris.pmtiles", location.href).href;
+const ASSETS = "https://protomaps.github.io/basemaps-assets";
+// The MapTiler comparison needs the public key: demo.html?key=<NEXT_PUBLIC_MAP_TILER_API_KEY>
+const MAPTILER_KEY = new URLSearchParams(location.search).get("key") ?? "";
+
+const protocol = new pmtiles.Protocol();
+maplibregl.addProtocol("pmtiles", protocol.tile);
+
+// Neutrals come from the design tokens; road, water and green hues are the
+// MapTiler Streets v2 ones, softened so the blue and deep-blue pins stay the
+// most saturated things on screen.
+const PAPER = "#f7f4ee";
+const HAIRLINE = "#e7e3db";
+const INK = "#1b2236";
+const INK_60 = "#7a7f8f";
+const INK_45 = "#9a9da8";
+
+const confessioFlavor = {
+  ...basemaps.namedFlavor("light"),
+  background: PAPER,
+  earth: PAPER,
+
+  park_a: "#dcebcc",
+  park_b: "#cfe4bd",
+  wood_a: "#dcebcc",
+  wood_b: "#cfe4bd",
+  scrub_a: "#e2edd0",
+  scrub_b: "#d6e7c4",
+  zoo: "#dcebcc",
+  hospital: "#f6e9e3",
+  school: "#eef1ef",
+  industrial: "#f1ebdf",
+  pedestrian: "#fbf9f4",
+  sand: "#f8f0d2",
+  beach: "#f8f0d2",
+  glacier: "#ffffff",
+  aerodrome: "#efece6",
+  runway: "#fbf9f4",
+  military: "#efece6",
+  pier: PAPER,
+
+  water: "#a8d4f5",
+
+  buildings: "#dcd5c8",
+
+  other: "#ffffff",
+  minor_service: "#ffffff",
+  minor_a: "#ffffff",
+  minor_b: "#ffffff",
+  link: "#ffeea8",
+  major: "#ffeea8",
+  highway: "#ffcc85",
+  minor_service_casing: "#dad3c6",
+  minor_casing: "#dad3c6",
+  link_casing: "#e9c28a",
+  major_casing_early: "#e9c28a",
+  major_casing_late: "#e9c28a",
+  highway_casing_early: "#e9ac77",
+  highway_casing_late: "#e9ac77",
+
+  tunnel_other: "#f6f3ed",
+  tunnel_minor: "#f6f3ed",
+  tunnel_link: "#fbf0c8",
+  tunnel_major: "#fbf0c8",
+  tunnel_highway: "#fbdcae",
+  tunnel_other_casing: HAIRLINE,
+  tunnel_minor_casing: HAIRLINE,
+  tunnel_link_casing: HAIRLINE,
+  tunnel_major_casing: HAIRLINE,
+  tunnel_highway_casing: HAIRLINE,
+
+  bridges_other: "#ffffff",
+  bridges_minor: "#ffffff",
+  bridges_link: "#ffeea8",
+  bridges_major: "#ffeea8",
+  bridges_highway: "#ffcc85",
+  bridges_other_casing: HAIRLINE,
+  bridges_minor_casing: HAIRLINE,
+  bridges_link_casing: "#e9c28a",
+  bridges_major_casing: "#e9c28a",
+  bridges_highway_casing: "#e9ac77",
+
+  railway: "#c4c2bd",
+  boundaries: "#b9b6ae",
+
+  roads_label_minor: INK_60,
+  roads_label_minor_halo: "#ffffff",
+  roads_label_major: INK_60,
+  roads_label_major_halo: "#ffffff",
+  address_label: INK_45,
+  address_label_halo: PAPER,
+  ocean_label: "#4d86b8",
+  subplace_label: INK_60,
+  subplace_label_halo: PAPER,
+  city_label: INK,
+  city_label_halo: PAPER,
+  state_label: INK_45,
+  state_label_halo: PAPER,
+  country_label: INK_60,
+
+  landcover: {
+    grassland: "#e4eed5",
+    barren: "#f6f0e2",
+    urban_area: "#f1ede4",
+    farmland: "#f1efdc",
+    glacier: "#ffffff",
+    scrub: "#e6edd3",
+    forest: "#d3e6c4",
+  },
+};
+
+const HIDDEN_ALWAYS = ["roads_shields", "address_label"];
+
+const BUILDING_FILL = "#dcd5c8";
+const BUILDING_EDGE = "#c9c1b2";
+// Warmer and lighter than MapTiler's #d1cdc2 @ 0.4: without its POI icons the
+// buildings are the dominant texture, so they have to stay quieter than there.
+const BUILDING_3D = "#d9ceb8";
+
+// Protomaps draws buildings as a flat half-transparent fill, which almost
+// vanishes on paper. Each mode swaps that one layer for something with depth.
+function buildingLayers(base, mode) {
+  const flat = {
+    ...base,
+    paint: { "fill-color": BUILDING_FILL, "fill-outline-color": BUILDING_EDGE },
+  };
+  if (mode === "flat") return [flat];
+  if (mode === "shadow") {
+    return [
+      {
+        ...base,
+        id: "buildings_shadow",
+        paint: {
+          "fill-color": "rgba(36, 46, 76, 0.16)",
+          "fill-translate": ["interpolate", ["linear"], ["zoom"], 14, ["literal", [0.5, 0.5]], 17, ["literal", [2, 2]]],
+        },
+      },
+      { ...base, paint: { "fill-color": "#e3ddd1", "fill-outline-color": BUILDING_EDGE } },
+    ];
+  }
+  // The flat fill stays under the extrusion so city blocks read darker than
+  // the white streets, as on MapTiler. From z15 real OSM heights are extruded
+  // on top; the perspective camera shows the walls even unpitched.
+  return [
+    {
+      ...base,
+      paint: {
+        "fill-color": "#cfc6b2",
+        "fill-opacity": 0.35,
+        "fill-outline-color": ["interpolate", ["linear"], ["zoom"], 13, "rgba(205, 202, 198, 0.3)", 14, "#cdcac6"],
+      },
+    },
+    {
+      id: "buildings_3d",
+      type: "fill-extrusion",
+      source: base.source,
+      "source-layer": base["source-layer"],
+      filter: base.filter,
+      minzoom: 15,
+      paint: {
+        "fill-extrusion-color": BUILDING_3D,
+        "fill-extrusion-height": ["coalesce", ["get", "height"], 5],
+        "fill-extrusion-base": ["coalesce", ["get", "min_height"], 0],
+        "fill-extrusion-opacity": 0.3,
+      },
+    },
+  ];
+}
+
+function protomapsStyle(flavorName, flavor, showPois, buildings) {
+  const hidden = new Set(showPois ? HIDDEN_ALWAYS : [...HIDDEN_ALWAYS, "pois"]);
+  const layers = basemaps
+    .layers("protomaps", flavor, { lang: "fr" })
+    .filter((l) => !hidden.has(l.id))
+    .flatMap((l) => (buildings && l.id === "buildings" ? buildingLayers(l, buildings) : [l]));
+  return {
+    version: 8,
+    glyphs: `${ASSETS}/fonts/{fontstack}/{range}.pbf`,
+    sprite: `${ASSETS}/sprites/v4/${flavorName}`,
+    sources: {
+      protomaps: {
+        type: "vector",
+        url: `pmtiles://${ARCHIVE}`,
+        attribution: '<a href="https://protomaps.com">Protomaps</a> © <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
+      },
+    },
+    layers,
+  };
+}
+
+const NOTES = {
+  confessio: "Auto-hébergé · palette Confessio",
+  light: "Auto-hébergé · flavor Protomaps par défaut",
+  maptiler: "API MapTiler · Streets v2, le fond actuel",
+};
+
+let current = "confessio";
+let buildings = "3d";
+const poisBox = document.getElementById("pois");
+
+function styleFor(name) {
+  if (name === "maptiler") return `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`;
+  if (name === "light") return protomapsStyle("light", basemaps.namedFlavor("light"), poisBox.checked, null);
+  return protomapsStyle("light", confessioFlavor, poisBox.checked, buildings);
+}
+
+const map = new maplibregl.Map({
+  container: "map",
+  style: styleFor(current),
+  center: [2.3415, 48.8556],
+  zoom: 13.2,
+  maxBounds: [[2.15, 48.75], [2.55, 48.95]],
+  attributionControl: { compact: true },
+});
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
+
+function render() {
+  document.querySelectorAll("button[data-style]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.style === current)));
+  document.querySelectorAll("button[data-buildings]").forEach((b) => {
+    b.setAttribute("aria-pressed", String(b.dataset.buildings === buildings));
+    b.disabled = current !== "confessio";
+  });
+  document.getElementById("buildings").style.opacity = current === "confessio" ? 1 : 0.45;
+  document.getElementById("note").textContent = NOTES[current];
+  poisBox.disabled = current === "maptiler";
+  map.setStyle(styleFor(current), { diff: false });
+}
+document.querySelectorAll("button[data-style]").forEach((b) => b.addEventListener("click", () => { current = b.dataset.style; render(); }));
+document.querySelectorAll("button[data-buildings]").forEach((b) => b.addEventListener("click", () => { buildings = b.dataset.buildings; render(); }));
+poisBox.addEventListener("change", render);
+render();
+
+const CHURCHES = [
+  { name: "Notre-Dame de Paris", at: [2.3499, 48.8530], label: "17:00", selected: true },
+  { name: "Saint-Sulpice", at: [2.3348, 48.8510], label: "15:30" },
+  { name: "Saint-Germain-des-Prés", at: [2.3343, 48.8540], label: "Sam." },
+  { name: "Saint-Eustache", at: [2.3450, 48.8634], label: "18:00" },
+  { name: "La Madeleine", at: [2.3245, 48.8700], label: "16:00" },
+  { name: "Saint-Louis-en-l'Île", at: [2.3570, 48.8515], label: "Dim." },
+  { name: "Saint-Étienne-du-Mont", at: [2.3480, 48.8467], label: "10:00" },
+  { name: "Saint-Roch", at: [2.3324, 48.8654], label: "12:15" },
+  { name: "Saint-Paul-Saint-Louis", at: [2.3613, 48.8547], empty: true },
+  { name: "Saint-Merry", at: [2.3505, 48.8589], empty: true },
+  { name: "Saint-Nicolas-du-Chardonnet", at: [2.3507, 48.8496], empty: true },
+  { name: "Sacré-Cœur", at: [2.3431, 48.8867], count: 6 },
+  { name: "Saint-Augustin", at: [2.3200, 48.8760], count: 4 },
+];
+
+const markers = CHURCHES.map((c) => {
+  const el = document.createElement("div");
+  el.title = c.name;
+  if (c.count) {
+    el.className = "aggregation-marker-count";
+    el.textContent = c.count;
+    return new maplibregl.Marker({ element: el }).setLngLat(c.at);
+  }
+  if (c.empty) {
+    el.className = "empty-church-marker";
+    return new maplibregl.Marker({ element: el }).setLngLat(c.at);
+  }
+  el.className = "church-marker" + (c.selected ? " selected" : "");
+  el.textContent = c.label;
+  return new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat(c.at);
+});
+markers.forEach((m) => m.addTo(map));
+
+document.getElementById("pins").addEventListener("change", (e) => {
+  markers.forEach((m) => (e.target.checked ? m.addTo(map) : m.remove()));
+});
+</script>
+</body>
+</html>
