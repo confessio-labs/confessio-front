@@ -139,6 +139,67 @@ test.describe("church card — contribution UI", () => {
 
     await expect(page.getByRole("button", { name: "Valider" })).toBeEnabled();
   });
+
+  test("the validation button says when no comment is attached", async ({
+    page,
+  }) => {
+    await openChurchCard(page);
+    await page
+      .getByRole("button", { name: /Confirmer que ces horaires/i })
+      .click();
+    await expect(page.locator("textarea")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Ajouter un commentaire" }).click();
+    const send = page.getByRole("button", { name: /^Valider/ });
+    await expect(send).toHaveText("Valider sans commentaire");
+    await expect(send).toBeEnabled();
+
+    await page.locator("textarea").fill("Vu à l'église dimanche");
+    await expect(send).toHaveText("Valider");
+  });
+});
+
+test.describe("church card — replies", () => {
+  const REPORT_UUID = "0b8f6a3e-6c4f-4d55-9a57-2f1d0c7e9b11";
+
+  test("a reply posts a comment threaded under its report", async ({
+    page,
+  }) => {
+    await openChurchCard(page, {
+      website: {
+        ...churchDetails.website,
+        reports: [
+          {
+            uuid: REPORT_UUID,
+            created_at: "2026-09-28T10:00:00Z",
+            feedback_type: "error",
+            comment: "Le lien Source pointe vers l'ancien site.",
+            sub_reports: [],
+          },
+        ],
+      },
+    });
+
+    await page.getByRole("button", { name: "Répondre" }).click();
+    const send = page.getByRole("button", { name: "Envoyer ma réponse" });
+    await expect(send).toBeDisabled();
+    await page.getByPlaceholder("Votre réponse").fill("  C'est corrigé  ");
+
+    const request = page.waitForRequest(
+      (r) => r.url().endsWith("/reports") && r.method() === "POST",
+    );
+    await send.click();
+
+    expect((await request).postDataJSON()).toMatchObject({
+      website_uuid: churchDetails.website.uuid,
+      feedback_type: "comment",
+      comment: "C'est corrigé",
+      main_report_uuid: REPORT_UUID,
+    });
+    await expect(
+      page.getByText("Réponse envoyée, en attente de vérification"),
+    ).toBeVisible();
+  });
 });
 
 test.describe("church card — share", () => {

@@ -59,6 +59,7 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const URL_REGEX = /(https?:\/\/[^\s]+)/g;
 
 type CommentNode = {
+  uuid: string | null;
   comment: string;
   created_at: string;
   feedback_type: FeedbackType;
@@ -235,6 +236,67 @@ const SendButton = ({
   </button>
 );
 
+const ReplyControls = ({
+  open,
+  sent,
+  text,
+  pending,
+  failed,
+  onToggle,
+  onChange,
+  onSend,
+}: {
+  open: boolean;
+  sent: boolean;
+  text: string;
+  pending: boolean;
+  failed: boolean;
+  onToggle: () => void;
+  onChange: (text: string) => void;
+  onSend: () => void;
+}) => (
+  <>
+    {open && (
+      <div className="mt-2 flex flex-col gap-2">
+        <textarea
+          value={text}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Votre réponse"
+          rows={2}
+          autoFocus
+          // Keep mobile font-size >= 16px: iOS Safari force-zooms into inputs below 16px. Do not lower.
+          className="w-full resize-none rounded-xl border border-hairline bg-white px-2.5 py-2 text-ink text-[16px] md:text-[13px] leading-normal placeholder:text-ink/38 focus:outline-none focus:border-lightblue/55"
+        />
+        {failed && (
+          <p className="text-rose-600 text-[12px]">
+            L&apos;envoi a échoué. Réessayez.
+          </p>
+        )}
+        <SendButton
+          label="Envoyer ma réponse"
+          pending={pending}
+          disabled={!text.trim()}
+          onClick={onSend}
+        />
+      </div>
+    )}
+    {sent ? (
+      <p className="mt-1 text-right text-deepblue/50 text-[12px]">
+        Réponse envoyée, en attente de vérification
+      </p>
+    ) : (
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="block ml-auto mt-1 text-deepblue/50 hover:text-deepblue text-[12px]"
+      >
+        {open ? "Annuler" : "Répondre"}
+      </button>
+    )}
+  </>
+);
+
 const Confirmation = ({
   title,
   detail,
@@ -292,12 +354,16 @@ const CommunityFeedback = ({
 
   const [step, setStep] = useState<Step>("root");
   const [comment, setComment] = useState("");
+  const [commentOpen, setCommentOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [validity, setValidity] = useState<Validity>("year");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [sentReplyTo, setSentReplyTo] = useState<string | null>(null);
 
   const { upvotes, lastGoodAt, entries } = useMemo(() => {
     const reports = churchDetails?.website?.reports ?? [];
@@ -322,6 +388,7 @@ const CommunityFeedback = ({
         const children = build(r.sub_reports);
         if (r.comment) {
           result.push({
+            uuid: r.uuid,
             comment: r.comment,
             created_at: r.created_at,
             feedback_type: r.feedback_type,
@@ -355,6 +422,7 @@ const CommunityFeedback = ({
         .filter((image) => !sourceImageUrls.has(image.public_url))
         .map((image) => ({
           node: {
+            uuid: null,
             comment: image.comment ?? "",
             created_at: "",
             feedback_type: "comment" as FeedbackType,
@@ -393,6 +461,12 @@ const CommunityFeedback = ({
       queryClient.invalidateQueries({
         queryKey: ["churchDetails", church.uuid],
       });
+      if (payload.feedback_type === "good") {
+        posthog.capture("church_upvoted", {
+          church_uuid: church.uuid,
+          church_name: church.name,
+        });
+      }
       setStep(
         payload.feedback_type === "good"
           ? "sent-good"
@@ -431,14 +505,54 @@ const CommunityFeedback = ({
     },
   });
 
+  const postReply = useMutation({
+    mutationFn: async (payload: ReportPayload) =>
+      fetchApi("/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: (_data, payload) => {
+      queryClient.invalidateQueries({
+        queryKey: ["churchDetails", church.uuid],
+      });
+      setSentReplyTo(payload.main_report_uuid ?? null);
+      setReplyTo(null);
+      setReplyText("");
+    },
+  });
+
+  const toggleReply = (uuid: string) => {
+    setReplyTo(replyTo === uuid ? null : uuid);
+    setReplyText("");
+    setSentReplyTo(null);
+    postReply.reset();
+  };
+
+  const submitReply = () => {
+    if (!websiteUuid || !replyTo) return;
+    postReply.mutate({
+      website_uuid: websiteUuid,
+      church_uuid: church.uuid,
+      feedback_type: "comment",
+      comment: replyText.trim(),
+      main_report_uuid: replyTo,
+    });
+  };
+
   const resetDraft = () => {
     setComment("");
+    setCommentOpen(false);
     setEmail("");
     setValidity("year");
     setPhotoFile(null);
     setPhotoError(null);
+    setReplyTo(null);
+    setReplyText("");
+    setSentReplyTo(null);
     postReport.reset();
     postImage.reset();
+    postReply.reset();
   };
 
   const goRoot = () => {
@@ -485,14 +599,15 @@ const CommunityFeedback = ({
   // with the scroller bottom — which puts the panel right above the keyboard.
   const sheetRef = useSheetRef();
   const panelRef = useRef<HTMLDivElement>(null);
+  const replyRef = useRef<HTMLDivElement>(null);
   const isFormStep =
     step === "validate" || step === "complete" || step === "report";
-  const keyboardOverlap = useKeyboardOverlap(isFormStep);
+  const keyboardOverlap = useKeyboardOverlap(isFormStep || replyTo !== null);
   useEffect(() => {
     if (keyboardOverlap === 0) return;
     sheetRef?.current?.snapTo(0);
-    revealAtTopSnap(panelRef.current);
-  }, [keyboardOverlap, sheetRef]);
+    revealAtTopSnap(replyTo ? replyRef.current : panelRef.current);
+  }, [keyboardOverlap, sheetRef, replyTo]);
 
   const inValidateBranch = step === "validate" || step === "sent-good";
   const inAddBranch =
@@ -523,10 +638,6 @@ const CommunityFeedback = ({
       goRoot();
       return;
     }
-    posthog.capture("church_upvoted", {
-      church_uuid: church.uuid,
-      church_name: church.name,
-    });
     setStep("validate");
     resetDraft();
   };
@@ -598,20 +709,37 @@ const CommunityFeedback = ({
       case "validate":
         return (
           <>
-            <textarea
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder="Commentaire (facultatif)"
-              rows={2}
-              // Keep mobile font-size >= 16px: iOS Safari force-zooms into inputs below 16px. Do not lower.
-              className="w-full resize-none rounded-xl border border-hairline bg-white px-2.5 py-2 text-ink text-[16px] md:text-[13px] leading-normal placeholder:text-ink/38 focus:outline-none focus:border-lightblue/55"
-            />
+            {commentOpen && (
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Votre commentaire"
+                rows={2}
+                autoFocus
+                // Keep mobile font-size >= 16px: iOS Safari force-zooms into inputs below 16px. Do not lower.
+                className="w-full resize-none rounded-xl border border-hairline bg-white px-2.5 py-2 text-ink text-[16px] md:text-[13px] leading-normal placeholder:text-ink/38 focus:outline-none focus:border-lightblue/55"
+              />
+            )}
             {sendError}
             <SendButton
-              label="Valider"
+              label={
+                commentOpen && !comment.trim()
+                  ? "Valider sans commentaire"
+                  : "Valider"
+              }
               pending={postReport.isPending}
               onClick={() => submitReport("good")}
             />
+            {!commentOpen && (
+              <button
+                type="button"
+                onClick={() => setCommentOpen(true)}
+                className="self-center inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12.5px] font-semibold text-deepblue/62 hover:text-deepblue hover:bg-deepblue/4 transition-colors"
+              >
+                <PlusIcon size={13} weight="bold" />
+                Ajouter un commentaire
+              </button>
+            )}
           </>
         );
 
@@ -872,53 +1000,73 @@ const CommunityFeedback = ({
           {entries.map(({ node, image, createdAt }, i) => (
             <div
               key={i}
-              className="bg-paper rounded-xl px-3 py-2.5 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.2)]"
+              ref={node.uuid && node.uuid === replyTo ? replyRef : undefined}
+              // Same keyboard padding as the top panel, see keyboardOverlap.
+              style={
+                node.uuid && node.uuid === replyTo
+                  ? { paddingBottom: keyboardOverlap }
+                  : undefined
+              }
             >
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <KindChip
-                  label={image ? "Photo" : KIND_LABELS[node.feedback_type]}
-                  tone={node.feedback_type === "error" ? "warn" : "neutral"}
-                  icon={
-                    image ? (
-                      <CameraIcon size={11} />
-                    ) : node.feedback_type === "error" ? (
-                      <WarningCircleIcon size={11} weight="bold" />
-                    ) : node.feedback_type === "good" ? (
-                      <CheckIcon size={11} weight="bold" />
-                    ) : (
-                      <PlusIcon size={11} weight="bold" />
-                    )
-                  }
-                />
-                {createdAt && (
-                  <span className="tabular ml-auto text-[10.5px] font-medium text-deepblue/50">
-                    {formatShortDay(createdAt)}
-                  </span>
-                )}
-              </div>
-              {image ? (
-                <div className="flex flex-col gap-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={image}
-                    // object-contain, never cover: these are photos of
-                    // schedule boards, so cropping would eat the text.
-                    alt="Photo des horaires"
-                    loading="lazy"
-                    className="w-full h-auto max-h-[240px] object-contain rounded-lg"
+              <div className="bg-paper rounded-xl px-3 py-2.5 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.2)]">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <KindChip
+                    label={image ? "Photo" : KIND_LABELS[node.feedback_type]}
+                    tone={node.feedback_type === "error" ? "warn" : "neutral"}
+                    icon={
+                      image ? (
+                        <CameraIcon size={11} />
+                      ) : node.feedback_type === "error" ? (
+                        <WarningCircleIcon size={11} weight="bold" />
+                      ) : node.feedback_type === "good" ? (
+                        <CheckIcon size={11} weight="bold" />
+                      ) : (
+                        <PlusIcon size={11} weight="bold" />
+                      )
+                    }
                   />
-                  {node.comment && (
-                    <p className="text-ink/70 text-[12px] leading-normal whitespace-pre-line [overflow-wrap:anywhere]">
-                      {renderCommentBody(node.comment)}
-                    </p>
+                  {createdAt && (
+                    <span className="tabular ml-auto text-[10.5px] font-medium text-deepblue/50">
+                      {formatShortDay(createdAt)}
+                    </span>
                   )}
                 </div>
-              ) : (
-                <p className="text-ink text-[12.5px] leading-normal whitespace-pre-line [overflow-wrap:anywhere]">
-                  {renderCommentBody(node.comment)}
-                </p>
-              )}
-              {node.children.length > 0 && <Replies nodes={node.children} />}
+                {image ? (
+                  <div className="flex flex-col gap-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={image}
+                      // object-contain, never cover: these are photos of
+                      // schedule boards, so cropping would eat the text.
+                      alt="Photo des horaires"
+                      loading="lazy"
+                      className="w-full h-auto max-h-[240px] object-contain rounded-lg"
+                    />
+                    {node.comment && (
+                      <p className="text-ink/70 text-[12px] leading-normal whitespace-pre-line [overflow-wrap:anywhere]">
+                        {renderCommentBody(node.comment)}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-ink text-[12.5px] leading-normal whitespace-pre-line [overflow-wrap:anywhere]">
+                    {renderCommentBody(node.comment)}
+                  </p>
+                )}
+                {node.children.length > 0 && <Replies nodes={node.children} />}
+                {node.uuid && canReport && (
+                  <ReplyControls
+                    open={replyTo === node.uuid}
+                    sent={sentReplyTo === node.uuid}
+                    text={replyText}
+                    pending={postReply.isPending}
+                    failed={postReply.isError}
+                    onToggle={() => toggleReply(node.uuid!)}
+                    onChange={setReplyText}
+                    onSend={submitReply}
+                  />
+                )}
+              </div>
             </div>
           ))}
         </div>

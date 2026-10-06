@@ -335,6 +335,11 @@ export interface components {
         /** ReportOut */
         ReportOut: {
             /**
+             * Uuid
+             * Format: uuid
+             */
+            uuid: string;
+            /**
              * Created At
              * Format: date-time
              */
@@ -465,6 +470,8 @@ export interface components {
             error_type?: components["schemas"]["ErrorTypeEnum"] | null;
             /** Comment */
             comment?: string | null;
+            /** Main Report Uuid */
+            main_report_uuid?: string | null;
         };
     };
     responses: never;
@@ -758,6 +765,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReportOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
                 };
             };
             /** @description Not Found */
