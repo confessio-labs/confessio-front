@@ -73,9 +73,6 @@ To cut a release:
    matching `vX.Y.Z` git tag.
 3. `git push && git push --tags`.
 
-On `confessio.fr` the poller (`scripts/poll.sh`) picks up the new commit on
-`main` and runs `scripts/deploy.sh`.
-
 ## API Documentation
 
 Backend API documentation is available at [https://confessio.fr/front/api/docs#/](https://confessio.fr/front/api/docs#/).

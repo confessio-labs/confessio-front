@@ -4,28 +4,31 @@ import {
   summaryToCard,
 } from "@/utils";
 import L, { Map, Marker as LeafletMarker } from "leaflet";
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { useSetAtom } from "jotai";
 import { useQueryClient } from "@tanstack/react-query";
 import { optimisticChurchAtom } from "@/atoms";
 import { useMapRouter } from "@/hooks/useMapRouter";
-import { useDateFilter } from "@/hooks/useDateFilter";
 
-export const ChurchMarker = ({
+// Takes dateFilterActive as a prop rather than reading the date filter itself:
+// that hook subscribes to search params, which change on every map pan, and
+// would re-render every marker past memo.
+export const ChurchMarker = memo(function ChurchMarker({
   map,
   church,
   selected,
+  dateFilterActive,
 }: {
   map: Map;
   church: AggregatedSearchResults["churches"][number];
   selected: boolean;
-}) => {
+  dateFilterActive: boolean;
+}) {
   const { uuid, latitude, longitude, eventsByDay } = church;
   const router = useMapRouter();
   const setOptimisticChurch = useSetAtom(optimisticChurchAtom);
   const queryClient = useQueryClient();
   const markerRef = useRef<LeafletMarker | null>(null);
-  const { date } = useDateFilter();
 
   // Open the church optimistically: seed the query cache and the optimistic
   // atom from the summary we already have so the sheet renders instantly,
@@ -49,7 +52,7 @@ export const ChurchMarker = ({
 
   const firstEventStart = Object.values(eventsByDay || {})?.[0]?.[0]?.start;
 
-  const timeLabel = getChurchMarkerLabel(firstEventStart, date !== null);
+  const timeLabel = getChurchMarkerLabel(firstEventStart, dateFilterActive);
 
   useEffect(() => {
     let marker: LeafletMarker;
@@ -104,7 +107,7 @@ export const ChurchMarker = ({
   }, [selected]);
 
   return null;
-};
+});
 
 export const AggregationMarker = ({
   map,

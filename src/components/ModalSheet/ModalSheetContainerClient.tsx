@@ -2,10 +2,10 @@ import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useAtomValue } from "jotai";
 import { Sheet, SheetRef } from "react-modal-sheet";
-import { SheetRefContext } from "./SheetContext";
+import { SheetRefContext, TOP_SNAP } from "./SheetContext";
 import { optimisticChurchAtom } from "@/atoms";
 
-const SNAP_POINTS: number[] = [0.9, 0.5, 140];
+const SNAP_POINTS: number[] = [TOP_SNAP, 0.5, 140];
 const BOTTOM_SNAP_PX = 140;
 
 function ModalSheetContainerClient({

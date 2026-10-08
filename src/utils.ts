@@ -260,6 +260,27 @@ export const dioceseToBounds = (
   east: diocese.max_longitude,
 });
 
+// Date-filtered on purpose: an unfiltered search over a whole diocese comes
+// back as location aggregations rather than individual churches.
+export const fetchDioceseTodaySnapshot = cache(
+  (diocese: components["schemas"]["DioceseOut"]) => {
+    const bounds = dioceseToBounds(diocese);
+    return fetchChurchesWithWebsites({
+      min_lat: bounds.south,
+      max_lat: bounds.north,
+      min_lng: bounds.west,
+      max_lng: bounds.east,
+      date_filter: appTodayKey(),
+    });
+  },
+);
+
+// Diocese names come from the API as "Diocèse de Paris", "Diocèse d'Agen"…
+export const inDioceseLabel = (
+  diocese: components["schemas"]["DioceseOut"],
+): string =>
+  `dans le ${diocese.name.charAt(0).toLowerCase()}${diocese.name.slice(1)}`;
+
 export const boundsToString = (bounds: Bounds): string =>
   `${bounds.south.toFixed(6)},${bounds.west.toFixed(6)},${bounds.north.toFixed(6)},${bounds.east.toFixed(6)}`;
 

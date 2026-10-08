@@ -26,7 +26,9 @@ async function stubApi(page: Page, overrides: Json = {}) {
     return route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(Array.isArray(overrides.__list) ? overrides.__list : []),
+      body: JSON.stringify(
+        Array.isArray(overrides.__list) ? overrides.__list : [],
+      ),
     });
   });
 }
@@ -39,25 +41,35 @@ async function openChurchCard(page: Page, overrides: Json = {}) {
   ).toBeVisible();
 }
 
+async function openCompleteForm(page: Page) {
+  await openChurchCard(page);
+  await page
+    .getByRole("button", { name: /Compléter l'information ou signaler/i })
+    .click();
+  await page
+    .getByRole("button", { name: "Compléter l'information", exact: true })
+    .click();
+}
+
 test.describe("church card — contribution UI", () => {
   test("offers the in-app photo upload, not the legacy off-site link", async ({
     page,
   }) => {
-    await openChurchCard(page);
+    await openCompleteForm(page);
 
     await expect(
-      page.getByRole("button", { name: /Ajouter une photo des horaires/i }),
+      page.getByRole("button", { name: /Ajouter une photo/i }),
     ).toBeVisible();
 
     // 8574714 re-added this link on main; 6b357bb replaces it. If a bad merge
     // resolution ever brings it back, both would render.
-    await expect(
-      page.locator('a[href*="confessio.fr/paroisse"]'),
-    ).toHaveCount(0);
+    await expect(page.locator('a[href*="confessio.fr/paroisse"]')).toHaveCount(
+      0,
+    );
   });
 
   test("rejects a non-image file", async ({ page }) => {
-    await openChurchCard(page);
+    await openCompleteForm(page);
 
     await page.locator('input[type="file"]').setInputFiles({
       name: "horaires.pdf",
@@ -65,11 +77,11 @@ test.describe("church card — contribution UI", () => {
       buffer: Buffer.from("%PDF-1.4 not an image"),
     });
 
-    await expect(page.getByText("Veuillez choisir une image.")).toBeVisible();
+    await expect(page.getByText("Choisissez une image.")).toBeVisible();
   });
 
   test("rejects an image over 10 Mo", async ({ page }) => {
-    await openChurchCard(page);
+    await openCompleteForm(page);
 
     await page.locator('input[type="file"]').setInputFiles({
       name: "huge.jpg",
@@ -80,6 +92,154 @@ test.describe("church card — contribution UI", () => {
     await expect(
       page.getByText("Image trop lourde (10 Mo maximum)."),
     ).toBeVisible();
+  });
+
+  test("a complement needs text or a photo before it can be sent", async ({
+    page,
+  }) => {
+    await openCompleteForm(page);
+    const send = page.getByRole("button", { name: "Envoyer mon complément" });
+
+    await expect(send).toBeDisabled();
+
+    await page.locator("textarea").fill("Aussi le samedi à 18h");
+    await expect(send).toBeEnabled();
+
+    await page.locator("textarea").fill("   ");
+    await expect(send).toBeDisabled();
+
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "affiche.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from([0xff, 0xd8, 0xff]),
+    });
+    await expect(send).toBeEnabled();
+  });
+
+  test("an error report needs text before it can be sent", async ({ page }) => {
+    await openChurchCard(page);
+    await page
+      .getByRole("button", { name: /Compléter l'information ou signaler/i })
+      .click();
+    await page
+      .getByRole("button", { name: "Signaler une erreur", exact: true })
+      .click();
+    const send = page.getByRole("button", { name: "Envoyer mon signalement" });
+
+    await expect(send).toBeDisabled();
+    await page.locator("textarea").fill("Le lien Source est mort");
+    await expect(send).toBeEnabled();
+  });
+
+  test("a validation can be sent without text", async ({ page }) => {
+    await openChurchCard(page);
+    await page
+      .getByRole("button", { name: /Confirmer que ces horaires/i })
+      .click();
+
+    await expect(page.getByRole("button", { name: "Valider" })).toBeEnabled();
+  });
+
+  test("the validation button says when no comment is attached", async ({
+    page,
+  }) => {
+    await openChurchCard(page);
+    await page
+      .getByRole("button", { name: /Confirmer que ces horaires/i })
+      .click();
+    await expect(page.locator("textarea")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Ajouter un commentaire" }).click();
+    const send = page.getByRole("button", { name: /^Valider/ });
+    await expect(send).toHaveText("Valider sans commentaire");
+    await expect(send).toBeEnabled();
+
+    await page.locator("textarea").fill("Vu à l'église dimanche");
+    await expect(send).toHaveText("Valider");
+  });
+});
+
+test.describe("church card — replies", () => {
+  const REPORT_UUID = "0b8f6a3e-6c4f-4d55-9a57-2f1d0c7e9b11";
+
+  test("a reply posts a comment threaded under its report", async ({
+    page,
+  }) => {
+    await openChurchCard(page, {
+      website: {
+        ...churchDetails.website,
+        reports: [
+          {
+            uuid: REPORT_UUID,
+            created_at: "2026-09-28T10:00:00Z",
+            feedback_type: "error",
+            comment: "Le lien Source pointe vers l'ancien site.",
+            sub_reports: [],
+          },
+        ],
+      },
+    });
+
+    await page.getByRole("button", { name: "Répondre" }).click();
+    const send = page.getByRole("button", { name: "Envoyer ma réponse" });
+    await expect(send).toBeDisabled();
+    await page.getByPlaceholder("Votre réponse").fill("  C'est corrigé  ");
+
+    const request = page.waitForRequest(
+      (r) => r.url().endsWith("/reports") && r.method() === "POST",
+    );
+    await send.click();
+
+    expect((await request).postDataJSON()).toMatchObject({
+      website_uuid: churchDetails.website.uuid,
+      feedback_type: "comment",
+      comment: "C'est corrigé",
+      main_report_uuid: REPORT_UUID,
+    });
+    await expect(
+      page.getByText("Réponse envoyée, en attente de vérification"),
+    ).toBeVisible();
+  });
+});
+
+test.describe("church card — share", () => {
+  test("opens the native share sheet with the clean church URL", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __shared: ShareData[] }).__shared = [];
+      navigator.share = async (data?: ShareData) => {
+        (window as unknown as { __shared: ShareData[] }).__shared.push(data!);
+      };
+    });
+    await openChurchCard(page);
+    await page.getByRole("button", { name: "Partager" }).click();
+
+    const shared = await page.evaluate(
+      () => (window as unknown as { __shared: ShareData[] }).__shared,
+    );
+    expect(shared).toHaveLength(1);
+    expect(new URL(shared[0]!.url!).pathname).toBe(`/church/${CHURCH_UUID}`);
+    expect(new URL(shared[0]!.url!).search).toBe("");
+    expect(shared[0]!.title).toContain(churchDetails.name);
+  });
+
+  test("copies the link when the browser has no share sheet", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.addInitScript(() => {
+      delete (Navigator.prototype as Partial<Navigator>).share;
+    });
+    await openChurchCard(page);
+    await page.getByRole("button", { name: "Partager" }).click();
+
+    await expect(
+      page.getByRole("button", { name: "Lien copié" }),
+    ).toBeVisible();
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    expect(new URL(copied).pathname).toBe(`/church/${CHURCH_UUID}`);
   });
 });
 
@@ -132,10 +292,33 @@ test.describe("navigation modal", () => {
       page.locator("dialog a[href*='accounts/login']"),
     ).not.toHaveClass(/rounded-b-xl/);
 
-    await expect(entries.last()).toHaveAttribute(
-      "href",
-      /play\.google\.com/,
+    await expect(entries.last()).toHaveAttribute("href", /play\.google\.com/);
+  });
+});
+
+test.describe("moderator mode", () => {
+  test("tapping the version five times reveals the Django parish link", async ({
+    page,
+  }) => {
+    await openChurchCard(page);
+    const parishLink = page.locator(
+      `a[href="https://confessio.fr/paroisse/${churchDetails.website.uuid}"]`,
     );
+    await expect(parishLink).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Ouvrir le menu" }).click();
+    const version = page.getByTestId("app-version");
+    for (let i = 0; i < 4; i++) await version.click();
+    await expect(page.getByRole("status")).not.toHaveText(/activé/);
+    await version.click();
+    await expect(page.getByRole("status")).toHaveText("Mode modérateur activé");
+    await page.keyboard.press("Escape");
+
+    await expect(parishLink).toBeVisible();
+    await expect(parishLink).toHaveAttribute("rel", /nofollow/);
+
+    await page.reload();
+    await expect(parishLink).toBeVisible();
   });
 });
 
@@ -182,21 +365,22 @@ test.describe("date handling", () => {
       await expect(page.getByText("Aujourd'hui").first()).toBeVisible();
 
       // Sanity: the browser really is at the instant and zone we asked for.
-      const anchored = await page.evaluate(
-        () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
+      const anchored = await page.evaluate(() =>
+        new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
       );
       expect(anchored).toBe(parisToday);
 
       // The rail is "Tous les jours", "Aujourd'hui", "Demain", then
       // weekday + day-of-month. The third dated chip pins which day the rail
       // thinks it is — Paris-anchored, or the browser's own zone.
-      const chips = await page.locator("[aria-pressed]").allTextContents();
-      expect(chips.slice(0, 3)).toEqual([
-        "Tous les jours",
-        "Aujourd'hui",
-        "Demain",
-      ]);
-      expect(chips[3]).toContain(thirdChipDay);
+      // The server renders on the real clock, so the rail first shows real
+      // dates and only switches to the frozen ones once hydration re-renders
+      // it: these assertions must retry, not read the DOM once.
+      const chips = page.locator("[aria-pressed]");
+      await expect(chips.nth(3)).toContainText(thirdChipDay);
+      await expect(chips.nth(0)).toHaveText("Tous les jours");
+      await expect(chips.nth(1)).toHaveText("Aujourd'hui");
+      await expect(chips.nth(2)).toHaveText("Demain");
 
       await context.close();
     });
@@ -205,7 +389,11 @@ test.describe("date handling", () => {
   // Hydration needs its own case on the real clock: with the clock frozen only
   // in the browser, the server and client are genuinely at different instants
   // and a mismatch would be the test's own doing, not the app's.
-  for (const timezoneId of ["UTC", "Pacific/Kiritimati", "America/Los_Angeles"]) {
+  for (const timezoneId of [
+    "UTC",
+    "Pacific/Kiritimati",
+    "America/Los_Angeles",
+  ]) {
     test(`the date UI hydrates without a mismatch under ${timezoneId}`, async ({
       browser,
     }) => {
@@ -232,11 +420,49 @@ test.describe("date handling", () => {
   }
 });
 
+test.describe("map", () => {
+  // Deliberately unstubbed and outside Paris: the fixture church sits inside the
+  // default Paris view, so it can't tell "centered on the church" from "never moved".
+  const LYON_CATHEDRAL_UUID = "943cc65e-1c38-4bc1-b28d-1acbdda797e0";
+
+  test("a direct church link opens the map on that church", async ({
+    page,
+    request,
+  }) => {
+    const church = await (
+      await request.get(`${API}/church/${LYON_CATHEDRAL_UUID}`)
+    ).json();
+
+    await page.goto(`/church/${LYON_CATHEDRAL_UUID}`);
+
+    await expect
+      .poll(() => {
+        const param = new URL(page.url()).searchParams.get("bounds");
+        if (!param) return false;
+        const [south, west, north, east] = param.split(",").map(Number);
+        return (
+          south! < church.latitude &&
+          church.latitude < north! &&
+          west! < church.longitude &&
+          church.longitude < east!
+        );
+      })
+      .toBe(true);
+  });
+});
+
 test.describe("error routes", () => {
   test("an unknown diocese slug renders a 404, not a server error", async ({
     request,
   }) => {
     const res = await request.get("/diocese/zzz-not-real");
+    expect(res.status()).toBe(404);
+  });
+
+  test("an unknown city slug renders a 404, not a server error", async ({
+    request,
+  }) => {
+    const res = await request.get("/ville/zzz-not-real");
     expect(res.status()).toBe(404);
   });
 

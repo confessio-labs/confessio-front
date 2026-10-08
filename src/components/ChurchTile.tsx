@@ -1,20 +1,24 @@
 "use client";
 import { AggregatedSearchResults } from "@/utils";
+import { useMapRouter } from "@/hooks/useMapRouter";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { memo, type MouseEvent } from "react";
+
+// Building a formatter is costly; toLocaleDateString builds one on every call,
+// which adds up across every event of every tile.
+const dayLabelFormat = new Intl.DateTimeFormat("fr-FR", {
+  weekday: "short",
+  day: "numeric",
+});
 
 const formatDayLabel = (dateString: string) => {
-  const date = new Date(dateString);
-  const parts = date
-    .toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" })
+  const parts = dayLabelFormat
+    .format(new Date(dateString))
     .replace(".", "")
     .split(" ");
   const weekday = parts[0] ?? "";
   const day = parts.slice(1).join(" ");
-  return {
-    weekday: weekday.charAt(0).toUpperCase() + weekday.slice(1),
-    day,
-  };
+  return `${weekday.charAt(0).toUpperCase() + weekday.slice(1)} ${day}`;
 };
 
 const formatTime = (dateString: string) => {
@@ -25,13 +29,17 @@ const formatTime = (dateString: string) => {
   return `${hours}h${minutes.toString().padStart(2, "0")}`;
 };
 
-const ChurchTile = ({
+type Church = AggregatedSearchResults["churches"][number];
+
+export const ChurchTileView = ({
   church,
+  href,
+  onClick,
 }: {
-  church: AggregatedSearchResults["churches"][number];
+  church: Church;
+  href: string;
+  onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) => {
-  const searchParams = useSearchParams();
-  const query = searchParams.toString();
   const events = church.eventsByDay;
   if (events === undefined || Object.keys(events).length === 0) return null;
   const entries = Object.entries(events);
@@ -41,8 +49,9 @@ const ChurchTile = ({
 
   return (
     <Link
-      href={query ? `/church/${church.uuid}?${query}` : `/church/${church.uuid}`}
-      key={church.uuid}
+      href={href}
+      prefetch={false}
+      onClick={onClick}
       className="w-full bg-paper border border-hairline rounded-2xl px-4 py-3 block transition-shadow hover:shadow-[0_4px_14px_-6px_rgba(36,46,76,0.18)] active:scale-[0.995]"
     >
       <div className="flex items-start gap-3">
@@ -57,8 +66,7 @@ const ChurchTile = ({
         {soleEvent && (
           <div className="shrink-0 flex flex-col items-center gap-1.5">
             <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-deepblue/55">
-              {formatDayLabel(soleEvent.start).weekday}{" "}
-              {formatDayLabel(soleEvent.start).day}
+              {formatDayLabel(soleEvent.start)}
             </span>
             <span className="tabular inline-flex items-center justify-center rounded-full bg-deepblue text-white px-3 py-1 text-[13px] font-semibold min-w-[54px]">
               {formatTime(soleEvent.start)}
@@ -79,8 +87,7 @@ const ChurchTile = ({
               className="flex flex-col items-center gap-1.5 shrink-0"
             >
               <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-deepblue/55">
-                {formatDayLabel(event.start).weekday}{" "}
-                {formatDayLabel(event.start).day}
+                {formatDayLabel(event.start)}
               </span>
               <span
                 className={
@@ -98,4 +105,25 @@ const ChurchTile = ({
     </Link>
   );
 };
-export default ChurchTile;
+const ChurchTile = ({ church }: { church: Church }) => {
+  const router = useMapRouter();
+  const href = `/church/${church.uuid}`;
+  // The query (bounds, date) is read at click time: subscribing to search
+  // params would re-render every tile on every map pan, since bounds live in
+  // the URL. Modified clicks fall through to the plain href.
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+    router.push(`${href}${window.location.search}`);
+  };
+  return <ChurchTileView church={church} href={href} onClick={handleClick} />;
+};
+
+export default memo(ChurchTile);

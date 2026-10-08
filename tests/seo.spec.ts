@@ -1,6 +1,7 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 
 const DIOCESE_SLUGS = ["paris", "lyon", "marseille"] as const;
+const CITY_SLUGS = ["paris", "le-havre", "saint-etienne"] as const;
 
 // Real church UUIDs sampled from the live API. If any of these gets
 // deleted upstream the test will start failing with a 404 — refresh by
@@ -28,10 +29,9 @@ async function assertSeo(
 
   const html = await res.text();
 
-  expect(
-    html,
-    `${path} rendered a Next.js error boundary`,
-  ).not.toMatch(/__next_error|Application error: a (?:client|server)-side exception/);
+  expect(html, `${path} rendered a Next.js error boundary`).not.toMatch(
+    /__next_error|Application error: a (?:client|server)-side exception/,
+  );
 
   const title = html.match(/<title[^>]*>([^<]*)<\/title>/)?.[1]?.trim();
   expect(title, `${path} missing <title>`).toBeTruthy();
@@ -99,6 +99,27 @@ test.describe("SEO smoke", () => {
     });
   });
 
+  test("manifest.webmanifest makes the app installable", async ({
+    request,
+  }) => {
+    const res = await request.get("/manifest.webmanifest");
+    expect(res.status()).toBe(200);
+    const manifest = await res.json();
+    expect(manifest.display).toBe("standalone");
+    expect(manifest.start_url).toBe("/");
+    const sizes = manifest.icons.map((i: { sizes: string }) => i.sizes);
+    expect(sizes).toContain("192x192");
+    expect(sizes).toContain("512x512");
+    for (const icon of manifest.icons) {
+      const iconRes = await request.get(icon.src);
+      expect(iconRes.status(), icon.src).toBe(200);
+    }
+
+    const html = await (await request.get("/")).text();
+    expect(html).toContain('rel="manifest"');
+    expect(html).toContain('rel="apple-touch-icon"');
+  });
+
   test("sitemap.xml", async ({ request }) => {
     const res = await request.get("/sitemap.xml");
     expect(res.status()).toBe(200);
@@ -109,23 +130,61 @@ test.describe("SEO smoke", () => {
     const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(
       (m) => m[1] ?? "",
     );
-    const dioceseCount = locs.filter((u) =>
-      u.includes("/diocese/"),
-    ).length;
+    const dioceseCount = locs.filter((u) => u.includes("/diocese/")).length;
     expect(
       dioceseCount,
       "sitemap should expose at least 50 diocese URLs",
     ).toBeGreaterThan(50);
+
+    const cityCount = locs.filter((u) => u.includes("/ville/")).length;
+    expect(cityCount, "sitemap should expose 100 city URLs").toBe(100);
   });
 
   for (const slug of DIOCESE_SLUGS) {
     test(`diocese page: ${slug}`, async ({ request }) => {
-      await assertSeo(request, `/diocese/${slug}`, {
+      const path = `/diocese/${slug}`;
+      await assertSeo(request, path, {
         titleIncludes: "diocèse",
+        descriptionIncludes: "confession",
+        requireJsonLd: true,
+      });
+
+      const html = await (await request.get(path)).text();
+      expect(html, `${path} <title> repeats "diocèse"`).not.toMatch(
+        /diocèse d[e']\s*diocèse/i,
+      );
+      expect(html, `${path} missing diocese ItemList JSON-LD`).toContain(
+        '"@type":"ItemList"',
+      );
+    });
+  }
+
+  test("diocese page renders its church list as HTML", async ({ request }) => {
+    const html = await (await request.get("/diocese/paris")).text();
+    const body = html.replace(/<script[\s\S]*?<\/script>/g, "");
+
+    expect(body).toMatch(/<h1[^>]*>Horaires de confession dans le diocèse de Paris<\/h1>/);
+    expect(body).not.toContain("Loading...");
+    // Paris has confessions every day; an empty list means the fallback broke.
+    expect(body).toMatch(/<a[^>]+href="\/church\/[0-9a-f-]{36}"/);
+  });
+
+  for (const slug of CITY_SLUGS) {
+    test(`city page: ${slug}`, async ({ request }) => {
+      await assertSeo(request, `/ville/${slug}`, {
+        titleIncludes: "Confession",
         descriptionIncludes: "confession",
       });
     });
   }
+
+  test("city page renders its church list as HTML", async ({ request }) => {
+    const html = await (await request.get("/ville/le-havre")).text();
+    const body = html.replace(/<script[\s\S]*?<\/script>/g, "");
+
+    expect(body).toMatch(/<h1[^>]*>Horaires de confession au Havre<\/h1>/);
+    expect(body).not.toContain("Loading...");
+  });
 
   for (const uuid of CHURCH_UUIDS) {
     test(`church page: ${uuid}`, async ({ request }) => {

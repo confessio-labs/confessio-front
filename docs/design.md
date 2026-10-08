@@ -62,7 +62,7 @@ font feels continuous with the rest of the UI.
 Three radii, one rule per layer:
 
 - `rounded-full` — pills and circular buttons (time pills, close X, votes capsule, search pill)
-- `rounded-2xl` (16px) — **outer surfaces**: modal sheet, list tiles, search dropdown
+- `rounded-2xl` (16px) — **outer surfaces**: modal sheet, list tiles, search dropdown. On mobile the sheet rounds its top corners only — it runs off the bottom of the screen, so a rounded bottom would show where it ends
 - `rounded-xl` (12px) — **inner surfaces**: inner paper card in modal, comment bubbles; also day tabs' top (`rounded-t-xl`, matches card below)
 
 Rule: *outer 16, inner 12, interactive full.* We previously had `rounded-3xl`
@@ -126,7 +126,9 @@ This inversion is intentional: the card itself is the hero, so its interior
 **Header.** Church name at 22px/600 with tight leading. Address directly below
 in `white/70` with a small `NavigationArrow` icon that hints at the Google
 Maps directions link. Close button is a white/10 circle — present but not
-loud.
+loud. A share button in the same circle sits directly under it: it opens the
+OS share sheet (`navigator.share`) and, where there is none (Firefox, Linux
+Chrome), copies the church URL and swaps its icon for a check.
 
 **Day tabs.** A classic paper-tab metaphor, where the selected tab "fuses"
 with the card below via two 8×8 radial-gradient cutouts at the bottom

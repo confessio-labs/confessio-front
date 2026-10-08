@@ -18,7 +18,8 @@ export const metadata: Metadata = {
   title: "Confessio — Trouver une confession près de chez vous",
   description:
     "Trouvez les horaires de confession catholique près de chez vous. Lieux, horaires et informations pratiques.",
-  icons: { icon: "/favicon.svg" },
+  icons: { icon: "/favicon.svg", apple: "/apple-touch-icon.png" },
+  appleWebApp: { title: "Confessio", statusBarStyle: "default" },
   openGraph: {
     type: "website",
     locale: "fr_FR",
@@ -33,6 +34,7 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   interactiveWidget: "resizes-content" as const,
+  themeColor: "#242e4c",
 };
 
 export default function RootLayout({
@@ -42,9 +44,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body
-        className={clsx(dmSans.variable, "antialiased")}
-      >
+      <body className={clsx(dmSans.variable, "antialiased")}>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_JSONLD) }}

@@ -130,6 +130,25 @@ no ending — a reader finishes it and there is nothing to do, so the content is
 blog attached to a utility. With it, R1 and R2 get a real terminal action that
 resolves to the same offline event, later.
 
+**Constraint on it.** Deferred commitment would be the first thing Confessio
+ever stores about a person. The nav modal currently ships *"Made in 🇫🇷 with ✝️
+without 🍪"* — that is a promise, and it is part of why the product is
+trustworthy on a sensitive subject. Saving a church and a time is a small,
+defensible step across that line (and can be done client-side, no account).
+Saving what someone did wrong is a different category entirely — special-category
+personal data, in France, for a project whose current position is *we store
+nothing about you*.
+
+The line to hold is **read vs. record**:
+
+- An examen you **read** is content. Stateless, no account, sits on the S4→S5
+  gap, ships in days.
+- An examen that **records** needs accounts, storage, a retention policy, and a
+  different privacy promise than the one on the door.
+
+Everything on the S4→S5 gap should be read-only until someone decides
+deliberately to change the promise.
+
 ---
 
 ## Entry-point matrix
@@ -182,6 +201,53 @@ map → content as a destination.** A content page's job is to end on the map. T
 map's job is never to send someone off to read.
 
 ---
+
+## Settled: finder that prepares you
+
+**Decided 2026-07-28. Confessio is a finder. It prepares you; it does not
+accompany you.**
+
+Concretely, and this is the boundary to defend:
+
+- The S4→S5 gap gets a **read-only** "Préparer sa confession" — how it goes,
+  an examen de conscience, an acte de contrition. Content routes, no state.
+- Deferred commitment stores **a church and a time**, client-side, no account.
+- Nothing stores what a person did wrong. The promise on the door stays true.
+- The rest of the companion idea is a **partnership**, not a build. Hozana
+  already encourages the project and already publishes prayer content.
+
+The reasoning is below, kept because the question will be asked again.
+
+A parallel exercise on the team produced seven "flows" for a confession
+*companion*: state-of-life onboarding, quick and full examens, a private list of
+sins, a prayer library, a spiritual journal with voice notes, a nightly Ignatian
+examen. Six of the seven end inside the app — "consulter les prières" ends with
+having read a prayer, which is a screen visit, not a change in the world. By this
+doc's first test they are features, not flows.
+
+They are also, near enough, the feature set of an existing and free product
+category (ConfessIt; catholicexaminationofconscience.com and its "21 frameworks
+for every state in life"). That makes the list useful as competitive
+intelligence and weak as a roadmap.
+
+But it landed on something real: two of those seven sit exactly on the S4→S5
+gap this doc independently called the best unclaimed space in the product. Two
+people reaching the same empty room from opposite directions is good evidence the
+room exists.
+
+The genuine decision underneath, which is positioning and sits above UX:
+
+- **Finder that prepares you.** Confessio stays a finder and takes the thin,
+  stateless slice of the companion idea that sits on the S4→S5 gap. Content, not
+  a tool. Keeps the no-storage promise. Optionally hands the rest to a partner —
+  Hozana already encourages the project and already does prayer content.
+- **Finder plus companion.** Accounts, private lists, daily practice. A
+  different product with a different trust model, competing on the turf of
+  well-funded apps, while the thing nobody else has — the schedule data — gets
+  a smaller share of the effort.
+
+The first was chosen. The choice determines whether the S4→S5 work is a page or
+a platform; it is a page.
 
 ## The spine, and what joins it
 
@@ -290,6 +356,8 @@ answers are usually more informative than the idea.
 | Treating comments and the feedback control as decoration | Success is offline; a stale schedule fails the user where we can't see it. Confidence-building elements are spine. |
 | Content pages linked *from* the map as destinations | Turns the map into a portal. The link direction has to be content → map. |
 | Filing "close and easy" under curiosity | They aren't curious, they're unconvinced about cost. Sending them to explanatory content answers a question they never asked. |
+| Feature lists presented as flows | A flow ends in a change in the world. If every step of a proposed "flow" happens on screen and it ends with the user having *read* or *saved* something, it's a feature area — legitimate, but it needs a different justification and it can't inherit the spine's priority. |
+| State-of-life onboarding before the map | A toll gate on the R3 majority — the people already converting — asking an intimate question before delivering any value. Also the exact opposite of the fix for "landing on the map is confusing". |
 
 ---
 

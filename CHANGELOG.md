@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-08
+
+### Added
+
+- Confessio can be installed: added to the iOS home screen or installed from
+  Chrome on Android, it opens full-screen with its own icon.
+- A share button on the church card opens the phone's share sheet with a
+  clean link to the church, or copies the link where sharing isn't available.
+- Visitors can reply to a community comment directly under it.
+- City pages for the 100 largest French communes at `/ville/<slug>`, with
+  today's confessions and the map framed on the city.
+- Diocese and city pages ship their church list and today's times in the
+  page itself, so search engines and slow connections see the schedules
+  before the app loads.
+- A moderator mode, toggled by tapping the version number five times, adds a
+  link from the church card to its parish page on confessio.fr.
+
+### Changed
+
+- Community feedback on the church card is reworked: confirm the information,
+  or complete it / report an error in a short panel. Completing takes text, a
+  photo, or both. Tapping the panel's pill closes it, and the keyboard no
+  longer pops up as soon as a panel opens.
+- A direct link to a church opens the map on that church instead of starting
+  on Paris and moving afterwards.
+- On mobile the sheet's bottom corners are square, so it runs seamlessly
+  under the search bar.
+- Panning the map is smoother: the church list and markers no longer redraw
+  on every move.
+- Diocese and city pages are rebuilt each morning with the full day's
+  schedule.
+
+### Fixed
+
+- On iPhone, a scroll that starts on a text field no longer opens the
+  keyboard when the finger lifts.
+- Opening a feedback panel no longer shifts the sheet's snap points up.
+- Diocese pages no longer list yesterday's confessions when rebuilt just
+  after midnight.
+
+### Known issues
+
+- Focusing the *Compléter* text field scrolls it under the card's header
+  until the first keystroke.
+- The search bar gets thinner once autocomplete results appear.
+
 ## [1.1.0] - 2026-09-05
 
 ### Added

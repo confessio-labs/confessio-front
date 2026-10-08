@@ -30,6 +30,7 @@ changes; anything else gets a test instead.
 - [ ] **Virtual keyboard.** Focus the search input — it stays visible above the keyboard. Tap the clear (X) — the keyboard should not dismiss. Dismiss deliberately — the sheet returns to its prior snap.
 - [ ] **Native pickers.** Any file/photo picker opens the real iOS sheet and returns a usable file.
 - [ ] **Interruption.** Background the app a minute, or toggle airplane mode, and return — state survives, no white screen.
+- [ ] **Home screen.** Share → *Sur l'écran d'accueil*. The icon is the white logo on deepblue, opens full-screen (no Safari bars). On a church card, *Partager* opens the iOS share sheet.
 
 ---
 
@@ -42,6 +43,7 @@ changes; anything else gets a test instead.
 - [ ] **System back.** Back-gesture out of a modal — closes cleanly, never a blank screen.
 - [ ] **Sheet drag + scroll chaining.** Same two checks as Run A. Blink chains scroll differently from WebKit; this is the main reason Run B exists.
 - [ ] **Pull-to-refresh.** From the top, Chrome's PTR either works cleanly or is absorbed by the sheet — it must not fight it.
+- [ ] **Install.** Menu → *Installer l'application*. The launcher icon is not clipped by the mask, the app opens standalone, and *Partager* on a church card opens the Android share sheet.
 
 ---
 

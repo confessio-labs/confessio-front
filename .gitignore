@@ -47,3 +47,5 @@ next-env.d.ts
 
 # local config (not committed)
 .mcp.json
+
+.claude/worktrees/

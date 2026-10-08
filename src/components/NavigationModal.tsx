@@ -1,6 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAtom } from "jotai";
+import { isModeratorModeAtom } from "@/atoms";
+
+const MODERATOR_TAPS = 5;
+const TAP_WINDOW_MS = 1500;
 
 const NavigationModal = ({
   isOpen,
@@ -10,6 +15,30 @@ const NavigationModal = ({
   onClose: () => void;
 }) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const [isModeratorMode, setIsModeratorMode] = useAtom(isModeratorModeAtom);
+  const taps = useRef({ count: 0, last: 0 });
+  const [toast, setToast] = useState("");
+  const [isToastVisible, setIsToastVisible] = useState(false);
+
+  useEffect(() => {
+    if (!isToastVisible) return;
+    const timeout = setTimeout(() => setIsToastVisible(false), 1800);
+    return () => clearTimeout(timeout);
+  }, [isToastVisible, toast]);
+
+  const onVersionTap = () => {
+    const now = Date.now();
+    const t = taps.current;
+    t.count = now - t.last < TAP_WINDOW_MS ? t.count + 1 : 1;
+    t.last = now;
+    if (t.count < MODERATOR_TAPS) return;
+    t.count = 0;
+    setIsModeratorMode(!isModeratorMode);
+    setToast(
+      isModeratorMode ? "Mode modérateur désactivé" : "Mode modérateur activé",
+    );
+    setIsToastVisible(true);
+  };
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -93,7 +122,11 @@ const NavigationModal = ({
           {process.env.NEXT_PUBLIC_APP_VERSION && (
             <>
               <br />
-              <span className="tabular">
+              <span
+                className="tabular select-none"
+                onClick={onVersionTap}
+                data-testid="app-version"
+              >
                 v{process.env.NEXT_PUBLIC_APP_VERSION}
               </span>
             </>
@@ -116,6 +149,12 @@ const NavigationModal = ({
             />
           </a>
         </div>
+      </div>
+      <div
+        role="status"
+        className={`fixed bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-paper px-3.5 py-1.5 text-[12.5px] font-medium text-deepblue shadow-[0_4px_14px_-4px_rgba(0,0,0,0.3)] transition-opacity duration-200 pointer-events-none ${isToastVisible ? "opacity-100" : "opacity-0"}`}
+      >
+        {toast}
       </div>
     </dialog>
   );

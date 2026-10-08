@@ -1,4 +1,4 @@
-name: Revalidate dioceses (staging)
+name: Revalidate SEO pages (staging)
 
 on:
   schedule:
@@ -13,4 +13,4 @@ jobs:
         run: |
           curl -fsS --retry 3 --retry-delay 10 \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET_STAGING }}" \
-            https://staging-confessio.pcdhebrail.fr/api/revalidate-dioceses
+            https://staging-confessio.pcdhebrail.fr/api/revalidate-pages

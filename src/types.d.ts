@@ -123,6 +123,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/front/api/cities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Api Front Get Cities */
+        get: operations["front_front_api_api_front_get_cities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/front/api/city/{city_slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Api Front Get City */
+        get: operations["front_front_api_api_front_get_city"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/front/api/reports": {
         parameters: {
             query?: never;
@@ -301,6 +335,11 @@ export interface components {
         /** ReportOut */
         ReportOut: {
             /**
+             * Uuid
+             * Format: uuid
+             */
+            uuid: string;
+            /**
              * Created At
              * Format: date-time
              */
@@ -396,6 +435,23 @@ export interface components {
             /** Max Longitude */
             max_longitude: number;
         };
+        /** CityOut */
+        CityOut: {
+            /** Insee Code */
+            insee_code: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Zipcode */
+            zipcode: string;
+            /** Population */
+            population: number;
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+        };
         /**
          * ErrorTypeEnum
          * @enum {string}
@@ -414,6 +470,8 @@ export interface components {
             error_type?: components["schemas"]["ErrorTypeEnum"] | null;
             /** Comment */
             comment?: string | null;
+            /** Main Report Uuid */
+            main_report_uuid?: string | null;
         };
     };
     responses: never;
@@ -633,6 +691,60 @@ export interface operations {
             };
         };
     };
+    front_front_api_api_front_get_cities: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CityOut"][];
+                };
+            };
+        };
+    };
+    front_front_api_api_front_get_city: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                city_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CityOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
     front_front_api_api_front_post_reports: {
         parameters: {
             query?: never;
@@ -653,6 +765,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReportOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
                 };
             };
             /** @description Not Found */

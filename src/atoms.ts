@@ -1,4 +1,5 @@
 import { atom } from "jotai";
+import { atomWithStorage } from "jotai/utils";
 import { components } from "@/types";
 
 export const isSearchFocusedAtom = atom(false);
@@ -9,3 +10,7 @@ export const isSearchFocusedAtom = atom(false);
 // handing off to the server-rendered card.
 export const optimisticChurchAtom =
   atom<components["schemas"]["ChurchDetails"] | null>(null);
+
+// Toggled by tapping the version number in the navigation modal five times.
+// Not access control: it only reveals links to public Django pages.
+export const isModeratorModeAtom = atomWithStorage("moderator-mode", false);

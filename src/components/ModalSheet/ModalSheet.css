@@ -5,8 +5,17 @@
 
 .react-modal-sheet-container {
   background-color: var(--color-deepblue) !important;
-  border-radius: 16px !important;
+  /* On mobile the sheet runs off the bottom of the screen, so only its top
+     edge is visible and rounded. */
+  border-radius: 16px 16px 0 0 !important;
   overflow: clip;
+}
+
+/* Matches MOBILE_BREAKPOINT in src/utils.ts. */
+@media (min-width: 768px) {
+  .react-modal-sheet-container {
+    border-radius: 16px !important;
+  }
 }
 
 .react-modal-sheet-header {
