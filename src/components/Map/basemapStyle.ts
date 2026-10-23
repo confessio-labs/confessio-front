@@ -108,7 +108,7 @@ const confessioFlavor: Flavor = {
   },
 };
 
-const HIDDEN_LAYERS = new Set(["pois", "roads_shields", "address_label"]);
+const HIDDEN_LAYERS = new Set(["roads_shields", "address_label"]);
 
 // Warmer and lighter than MapTiler's #d1cdc2 @ 0.4: without its POI icons the
 // buildings are the dominant texture, so they have to stay quieter than there.
@@ -154,6 +154,38 @@ function buildingLayers(base: LayerSpecification): LayerSpecification[] {
   ];
 }
 
+// Church names as quiet landmarks, without an icon so they never read as a
+// second pin. The tiles only say "christian", so Jehovah's Witnesses halls are
+// dropped by name; other denominations name themselves ("Église Baptiste").
+function churchLabels(pois: LayerSpecification): LayerSpecification[] {
+  if (pois.type !== "symbol") return [];
+  const layout = { ...pois.layout };
+  delete layout["icon-image"];
+  delete layout["text-variable-anchor"];
+  // Below the point: hour pills sit above it and empty dots on it.
+  layout["text-anchor"] = "top";
+  layout["text-offset"] = [0, 0.9];
+  return [
+    {
+      ...pois,
+      id: "churches",
+      minzoom: 16,
+      filter: [
+        "all",
+        ["==", ["get", "kind"], "place_of_worship"],
+        ["==", ["get", "kind_detail"], "christian"],
+        ["!", ["in", "Salle du Royaume", ["coalesce", ["get", "name"], ""]]],
+      ],
+      layout,
+      paint: {
+        "text-color": INK_60,
+        "text-halo-color": PAPER,
+        "text-halo-width": 1,
+      },
+    },
+  ];
+}
+
 export const basemapStyle: StyleSpecification = {
   version: 8,
   glyphs: `${TILES_URL}/fonts/{fontstack}/{range}.pbf`,
@@ -168,7 +200,9 @@ export const basemapStyle: StyleSpecification = {
   },
   layers: layers("protomaps", confessioFlavor, { lang: "fr" })
     .filter((layer) => !HIDDEN_LAYERS.has(layer.id))
-    .flatMap((layer) =>
-      layer.id === "buildings" ? buildingLayers(layer) : [layer],
-    ),
+    .flatMap((layer) => {
+      if (layer.id === "buildings") return buildingLayers(layer);
+      if (layer.id === "pois") return churchLabels(layer);
+      return [layer];
+    }),
 };
