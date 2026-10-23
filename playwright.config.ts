@@ -17,6 +17,11 @@ export default defineConfig({
     extraHTTPHeaders: {
       "user-agent": "confessio-seo-tests/1.0",
     },
+    // Headless Chromium has no WebGL2 by default, and without it the map
+    // skips its tile layer entirely.
+    launchOptions: {
+      args: ["--use-gl=angle", "--enable-unsafe-swiftshader"],
+    },
   },
   webServer: usingExternalTarget
     ? undefined

@@ -1,7 +1,7 @@
-// Vendored from leaflet-active-area@1.3.1 with a MaptilerLayer patch.
+// Vendored from leaflet-active-area@1.3.1 with a MaplibreGL layer patch.
 // Original: https://github.com/Mappy/Leaflet-active-area
 //
-// MaptilerLayer extends L.Layer (not L.GridLayer) and calls getCenter() /
+// L.MaplibreGL extends L.Layer (not L.GridLayer) and calls getCenter() /
 // getBounds() expecting container coordinates, so it needs its own patch.
 //
 // This file monkey-patches Leaflet prototypes via .include(), accessing many
@@ -9,7 +9,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-function-type, @typescript-eslint/no-this-alias */
 
 import L from "leaflet";
-import { MaptilerLayer } from "@maptiler/leaflet-maptilersdk";
+import { MaplibreGL } from "@maplibre/maplibre-gl-leaflet";
 
 declare module "leaflet" {
   interface Map {
@@ -450,14 +450,14 @@ L.GridLayer.include({
   },
 });
 
-// MaptilerLayer extends L.Layer (not L.GridLayer), so it has its own
+// L.MaplibreGL extends L.Layer (not L.GridLayer), so it has its own
 // _transformGL / _animateZoom / _pinchZoom / _transitionEnd that call
 // map.getCenter() and map.getBounds(). With active-area, those return
-// viewport-relative values, but MaptilerLayer positions a WebGL canvas
+// viewport-relative values, but L.MaplibreGL positions a WebGL canvas
 // in container coordinates. We patch to use getCenter(true) and compute
 // container bounds directly so the tile canvas stays in sync.
 {
-  const proto = MaptilerLayer.prototype as any;
+  const proto = MaplibreGL.prototype as any;
 
   // Helper: get container bounds (bypasses viewport-aware getBounds)
   function getContainerBounds(map: any): L.LatLngBounds {
@@ -468,21 +468,21 @@ L.GridLayer.include({
   }
 
   proto._transformGL = function (this: any) {
-    if (!this._maptilerMap) return;
-    this._maptilerMap.setCenter(this._map.getCenter(true));
-    this._maptilerMap.setZoom(this._map.getZoom() - 1);
+    if (!this._glMap) return;
+    this._glMap.setCenter(this._map.getCenter(true));
+    this._glMap.setZoom(this._map.getZoom() - 1);
   };
 
   proto._pinchZoom = function (this: any) {
-    if (!this._maptilerMap) return;
-    this._maptilerMap.jumpTo({
+    if (!this._glMap) return;
+    this._glMap.jumpTo({
       zoom: this._map.getZoom() - 1,
       center: this._map.getCenter(true),
     });
   };
 
   proto._animateZoom = function (this: any, t: any) {
-    if (!this._maptilerMap) return;
+    if (!this._glMap) return;
     const map = this._map;
     const scale = map.getZoomScale(t.zoom);
     const padded = map.getSize().multiplyBy(this.options.padding * scale);
@@ -495,26 +495,27 @@ L.GridLayer.include({
     const nw = getContainerBounds(map).getNorthWest();
     const p = map.project(nw, t.zoom)._subtract(origin);
     L.DomUtil.setTransform(
-      this._maptilerMap.getCanvas(),
+      this._glMap.getCanvas(),
       p.subtract(this._offset),
       scale,
     );
   };
 
   proto._transitionEnd = function (this: any) {
-    if (!this._maptilerMap) return;
+    if (!this._glMap) return;
     L.Util.requestAnimFrame(() => {
       const zoom = this._map.getZoom();
       const nw = getContainerBounds(this._map).getNorthWest();
       const o = this._map.latLngToContainerPoint(nw);
-      L.DomUtil.setTransform(this._maptilerMap._actualCanvas, o, 1);
-      this._maptilerMap.once(
+      this._resizeContainer();
+      L.DomUtil.setTransform(this._glMap._actualCanvas, o, 1);
+      this._glMap.once(
         "moveend",
         L.Util.bind(() => {
           this._zoomEnd();
         }, this),
       );
-      this._maptilerMap.jumpTo({
+      this._glMap.jumpTo({
         center: this._map.getCenter(true),
         zoom: zoom - 1,
       });

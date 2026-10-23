@@ -18,14 +18,17 @@
     "pull-types": "openapi-typescript https://confessio.fr/front/api/openapi.json -o src/types.d.ts"
   },
   "dependencies": {
-    "@maptiler/leaflet-maptilersdk": "^4.1.1",
+    "@maplibre/maplibre-gl-leaflet": "^0.1.4",
     "@phosphor-icons/react": "^2.1.10",
+    "@protomaps/basemaps": "^5.7.2",
     "@tanstack/react-query": "^5.79.0",
     "clsx": "^2.1.1",
     "jotai": "^2.13.1",
     "leaflet": "^1.9.4",
     "leaflet-defaulticon-compatibility": "^0.1.2",
+    "maplibre-gl": "^5.24.0",
     "next": "16.3.8",
+    "pmtiles": "^4.5.0",
     "posthog-js": "^1.365.0",
     "prettier": "^3.6.2",
     "react": "^19.3.0",

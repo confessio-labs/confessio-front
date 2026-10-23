@@ -1,16 +1,22 @@
 import { components } from "@/types";
-import { AggregatedSearchResults, Bounds, computeEventsByDay, fetchApi, MAP_TILER_API_KEY, MOBILE_BREAKPOINT } from "@/utils";
-import { MaptilerLayer } from "@maptiler/leaflet-maptilersdk";
+import { AggregatedSearchResults, Bounds, computeEventsByDay, fetchApi, MOBILE_BREAKPOINT } from "@/utils";
+import { maplibreGL } from "@maplibre/maplibre-gl-leaflet";
+import maplibregl from "maplibre-gl";
+import { Protocol } from "pmtiles";
 import L, { Map as LeafletMap } from "leaflet";
 import "leaflet-defaulticon-compatibility";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
 import "@/lib/leaflet-active-area";
 import "leaflet/dist/leaflet.css";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChurchMarker, AggregationMarker, CurrentPositionMarker } from "./Markers";
 import { useDateFilter } from "@/hooks/useDateFilter";
+import { basemapStyle } from "./basemapStyle";
+
+maplibregl.addProtocol("pmtiles", new Protocol().tile);
 
 const getAggregationUuid = (
   aggregation: components["schemas"]["SearchResultOut"]["aggregations"][number],
@@ -120,20 +126,15 @@ const Map = ({
         (window as any).__map = map;
       }
 
-      // MaptilerLayer requires WebGL2 — check support before creating the
+      // MapLibre requires WebGL2 — check support before creating the
       // layer to avoid a partially-added zombie instance that crashes on events
       const canvas = document.createElement("canvas");
       const gl = canvas.getContext("webgl2");
       if (gl) {
-        const layer = new MaptilerLayer({
-          apiKey: MAP_TILER_API_KEY || "",
-          // The Streets style hardcodes {name:en} on country/state/city/town
-          // labels, so without this the map reads "New Aquitaine"/"Dunkirk".
-          language: "fr",
-        }).addTo(map);
+        const layer = maplibreGL({ style: basemapStyle }).addTo(map);
         // Reveal the map (fade out the shimmer) on first full render.
         try {
-          layer.getMaptilerSDKMap().once("load", () => setTilesReady(true));
+          layer.getMaplibreMap().once("load", () => setTilesReady(true));
         } catch {
           setTilesReady(true);
         }
