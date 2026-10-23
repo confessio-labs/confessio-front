@@ -93,6 +93,21 @@ creating visual noise.
 **Why not a new shape?** The pill is the single most recognizable search
 pattern on mobile maps. Changing it would cost familiarity for no gain.
 
+### Basemap
+
+Self-hosted Protomaps tiles styled in `src/components/Map/basemapStyle.ts`.
+
+- **Paper neutrals** for land and labels (`--color-paper`, `--color-ink`
+  tints), so the map reads as part of the same surface as the sheet.
+- **MapTiler Streets road yellows and water blue**, softened: the lightblue
+  and deepblue pins must stay the most saturated things on screen.
+- **No POIs, road shields or house numbers, except church names.** Christian
+  places of worship get a muted name label from z16, under the point and
+  without an icon, so they read as landmarks and never as a second pin.
+- **Soft warm 3D buildings** (`#d9ceb8` at 0.3 opacity, from z15) over a flat
+  block fill, so city blocks read darker than the white streets without the
+  buildings becoming the dominant texture.
+
 ### Leaflet Pins
 
 Three pin types, unified visual language:

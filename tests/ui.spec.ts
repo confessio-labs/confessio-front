@@ -449,6 +449,24 @@ test.describe("map", () => {
       })
       .toBe(true);
   });
+
+  test("the basemap renders from the self-hosted tiles", async ({ page }) => {
+    const tileRequests: string[] = [];
+    const maptilerRequests: string[] = [];
+    page.on("request", (req) => {
+      const url = req.url();
+      if (url.startsWith("https://confessio.fr/tiles/france.pmtiles"))
+        tileRequests.push(url);
+      if (url.includes("maptiler.com")) maptilerRequests.push(url);
+    });
+
+    await stubApi(page);
+    await page.goto("/");
+
+    await expect(page.locator(".map-shimmer--hidden")).toHaveCount(1);
+    expect(tileRequests.length).toBeGreaterThan(0);
+    expect(maptilerRequests).toEqual([]);
+  });
 });
 
 test.describe("error routes", () => {

@@ -7,10 +7,6 @@ const API_URL = "https://confessio.fr/front/api";
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://confessio.fr";
 
-export const MAP_TILER_API_KEY = process.env.NEXT_PUBLIC_MAP_TILER_API_KEY;
-if (MAP_TILER_API_KEY === undefined)
-  console.error("MAP_TILER_API_KEY is undefined");
-
 export const MOBILE_BREAKPOINT = 768;
 
 // Anchoring "today" here rather than to the runtime keeps SSR (prod server runs
