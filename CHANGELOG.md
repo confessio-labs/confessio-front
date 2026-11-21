@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-21
+
+### Added
+
+- Churches are labelled by name on the map when zoomed in close.
+
+### Changed
+
+- The map is drawn from Confessio's own servers instead of MapTiler, with a
+  calmer style: paper-toned background, softer road colours, no shop or
+  road-number clutter, and soft 3D buildings when zoomed in.
+
 ## [1.2.0] - 2026-10-08
 
 ### Added
