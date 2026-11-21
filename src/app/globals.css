@@ -97,7 +97,7 @@ button:not(:disabled) {
 }
 
 /* Map tile-loading shimmer — covers the beige style background until the
-   MapLibre map fires its first `load`, then fades out. */
+   basemap fires its first `load`, then fades out. */
 .map-shimmer {
   position: absolute;
   inset: 0;

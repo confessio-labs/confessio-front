@@ -1,15 +1,15 @@
-// Vendored from leaflet-active-area@1.3.1 with a MaplibreGL layer patch.
+// Vendored from leaflet-active-area@1.3.1 with a patch for WebGL basemap layers.
 // Original: https://github.com/Mappy/Leaflet-active-area
 //
-// L.MaplibreGL extends L.Layer (not L.GridLayer) and calls getCenter() /
-// getBounds() expecting container coordinates, so it needs its own patch.
+// The WebGL basemap layers extend L.Layer (not L.GridLayer) and call
+// getCenter() / getBounds() expecting container coordinates, so they need
+// their own patch (patchGlLayer).
 //
 // This file monkey-patches Leaflet prototypes via .include(), accessing many
 // private internals (_viewport, _zoom, _move, etc.) that have no public types.
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-function-type, @typescript-eslint/no-this-alias */
 
 import L from "leaflet";
-import { MaplibreGL } from "@maplibre/maplibre-gl-leaflet";
 
 declare module "leaflet" {
   interface Map {
@@ -450,39 +450,41 @@ L.GridLayer.include({
   },
 });
 
-// L.MaplibreGL extends L.Layer (not L.GridLayer), so it has its own
+// The WebGL basemap layers (L.MaplibreGL and MaptilerLayer, both forks of
+// maplibre-gl-leaflet) extend L.Layer, not L.GridLayer, so they have their own
 // _transformGL / _animateZoom / _pinchZoom / _transitionEnd that call
 // map.getCenter() and map.getBounds(). With active-area, those return
-// viewport-relative values, but L.MaplibreGL positions a WebGL canvas
-// in container coordinates. We patch to use getCenter(true) and compute
+// viewport-relative values, but the layer positions a WebGL canvas in
+// container coordinates. We patch to use getCenter(true) and compute
 // container bounds directly so the tile canvas stays in sync.
-{
-  const proto = MaplibreGL.prototype as any;
+// `glMapKey` is the field each fork keeps its GL map under.
+function getContainerBounds(map: any): L.LatLngBounds {
+  const bounds = map.getPixelBounds();
+  const sw = map.unproject(bounds.getBottomLeft());
+  const ne = map.unproject(bounds.getTopRight());
+  return new L.LatLngBounds(sw, ne);
+}
 
-  // Helper: get container bounds (bypasses viewport-aware getBounds)
-  function getContainerBounds(map: any): L.LatLngBounds {
-    const bounds = map.getPixelBounds();
-    const sw = map.unproject(bounds.getBottomLeft());
-    const ne = map.unproject(bounds.getTopRight());
-    return new L.LatLngBounds(sw, ne);
-  }
-
+export function patchGlLayer(proto: any, glMapKey: string) {
   proto._transformGL = function (this: any) {
-    if (!this._glMap) return;
-    this._glMap.setCenter(this._map.getCenter(true));
-    this._glMap.setZoom(this._map.getZoom() - 1);
+    const glMap = this[glMapKey];
+    if (!glMap) return;
+    glMap.setCenter(this._map.getCenter(true));
+    glMap.setZoom(this._map.getZoom() - 1);
   };
 
   proto._pinchZoom = function (this: any) {
-    if (!this._glMap) return;
-    this._glMap.jumpTo({
+    const glMap = this[glMapKey];
+    if (!glMap) return;
+    glMap.jumpTo({
       zoom: this._map.getZoom() - 1,
       center: this._map.getCenter(true),
     });
   };
 
   proto._animateZoom = function (this: any, t: any) {
-    if (!this._glMap) return;
+    const glMap = this[glMapKey];
+    if (!glMap) return;
     const map = this._map;
     const scale = map.getZoomScale(t.zoom);
     const padded = map.getSize().multiplyBy(this.options.padding * scale);
@@ -494,28 +496,27 @@ L.GridLayer.include({
       ._round();
     const nw = getContainerBounds(map).getNorthWest();
     const p = map.project(nw, t.zoom)._subtract(origin);
-    L.DomUtil.setTransform(
-      this._glMap.getCanvas(),
-      p.subtract(this._offset),
-      scale,
-    );
+    L.DomUtil.setTransform(glMap.getCanvas(), p.subtract(this._offset), scale);
   };
 
   proto._transitionEnd = function (this: any) {
-    if (!this._glMap) return;
+    const glMap = this[glMapKey];
+    if (!glMap) return;
     L.Util.requestAnimFrame(() => {
       const zoom = this._map.getZoom();
       const nw = getContainerBounds(this._map).getNorthWest();
       const o = this._map.latLngToContainerPoint(nw);
-      this._resizeContainer();
-      L.DomUtil.setTransform(this._glMap._actualCanvas, o, 1);
-      this._glMap.once(
+      // MapTiler's fork has no _resizeContainer, and its own _transitionEnd
+      // never resized.
+      this._resizeContainer?.();
+      L.DomUtil.setTransform(glMap._actualCanvas, o, 1);
+      glMap.once(
         "moveend",
         L.Util.bind(() => {
           this._zoomEnd();
         }, this),
       );
-      this._glMap.jumpTo({
+      glMap.jumpTo({
         center: this._map.getCenter(true),
         zoom: zoom - 1,
       });

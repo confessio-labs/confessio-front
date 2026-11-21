@@ -650,22 +650,68 @@ test.describe("map", () => {
       .toBe(true);
   });
 
-  test("the basemap renders from the self-hosted tiles", async ({ page }) => {
-    const tileRequests: string[] = [];
-    const maptilerRequests: string[] = [];
+  const trackBasemapRequests = (page: Page) => {
+    const requests = { selfHosted: [] as string[], maptiler: [] as string[] };
     page.on("request", (req) => {
       const url = req.url();
       if (url.startsWith("https://confessio.fr/tiles/france.pmtiles"))
-        tileRequests.push(url);
-      if (url.includes("maptiler.com")) maptilerRequests.push(url);
+        requests.selfHosted.push(url);
+      if (url.includes("maptiler.com")) requests.maptiler.push(url);
     });
+    return requests;
+  };
 
+  test("?basemap=protomaps renders from the self-hosted tiles", async ({
+    page,
+  }) => {
+    const requests = trackBasemapRequests(page);
     await stubApi(page);
-    await page.goto("/");
+    await page.goto("/?basemap=protomaps");
 
     await expect(page.locator(".map-shimmer--hidden")).toHaveCount(1);
-    expect(tileRequests.length).toBeGreaterThan(0);
-    expect(maptilerRequests).toEqual([]);
+    expect(requests.selfHosted.length).toBeGreaterThan(0);
+    expect(requests.maptiler).toEqual([]);
+  });
+
+  test("?basemap=maptiler renders from MapTiler", async ({ page }) => {
+    const requests = trackBasemapRequests(page);
+    await stubApi(page);
+    await page.goto("/?basemap=maptiler");
+
+    await expect.poll(() => requests.maptiler.length).toBeGreaterThan(0);
+    expect(requests.selfHosted).toEqual([]);
+  });
+
+  test("the basemap override sticks across visits until ?basemap=auto", async ({
+    page,
+  }) => {
+    const requests = trackBasemapRequests(page);
+    await stubApi(page);
+    await page.goto("/?basemap=protomaps");
+    await expect(page.locator(".map-shimmer--hidden")).toHaveCount(1);
+
+    requests.selfHosted.length = 0;
+    await page.goto("/");
+    await expect(page.locator(".map-shimmer--hidden")).toHaveCount(1);
+    expect(requests.selfHosted.length).toBeGreaterThan(0);
+
+    await page.goto("/?basemap=auto");
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem("basemap-override")))
+      .toBeNull();
+  });
+
+  test("falls back to MapTiler when the self-hosted archive is unreachable", async ({
+    page,
+  }) => {
+    const requests = trackBasemapRequests(page);
+    await page.route("https://confessio.fr/tiles/france.pmtiles", (route) =>
+      route.abort(),
+    );
+    await stubApi(page);
+    await page.goto("/?basemap=protomaps");
+
+    await expect.poll(() => requests.maptiler.length).toBeGreaterThan(0);
   });
 });
 

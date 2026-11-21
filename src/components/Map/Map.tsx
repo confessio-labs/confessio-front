@@ -1,22 +1,16 @@
 import { components } from "@/types";
 import { AggregatedSearchResults, Bounds, computeEventsByDay, fetchApi, MOBILE_BREAKPOINT } from "@/utils";
-import { maplibreGL } from "@maplibre/maplibre-gl-leaflet";
-import maplibregl from "maplibre-gl";
-import { Protocol } from "pmtiles";
 import L, { Map as LeafletMap } from "leaflet";
 import "leaflet-defaulticon-compatibility";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
 import "@/lib/leaflet-active-area";
 import "leaflet/dist/leaflet.css";
-import "maplibre-gl/dist/maplibre-gl.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChurchMarker, AggregationMarker, CurrentPositionMarker } from "./Markers";
 import { useDateFilter } from "@/hooks/useDateFilter";
-import { basemapStyle } from "./basemapStyle";
-
-maplibregl.addProtocol("pmtiles", new Protocol().tile);
+import { mountBasemap } from "./basemap";
 
 const getAggregationUuid = (
   aggregation: components["schemas"]["SearchResultOut"]["aggregations"][number],
@@ -126,18 +120,13 @@ const Map = ({
         (window as any).__map = map;
       }
 
-      // MapLibre requires WebGL2 — check support before creating the
+      // Both basemaps require WebGL2 — check support before creating the
       // layer to avoid a partially-added zombie instance that crashes on events
       const canvas = document.createElement("canvas");
       const gl = canvas.getContext("webgl2");
       if (gl) {
-        const layer = maplibreGL({ style: basemapStyle }).addTo(map);
         // Reveal the map (fade out the shimmer) on first full render.
-        try {
-          layer.getMaplibreMap().once("load", () => setTilesReady(true));
-        } catch {
-          setTilesReady(true);
-        }
+        void mountBasemap(map, () => setTilesReady(true));
       } else {
         // No WebGL2 → no tile layer to wait for; drop the shimmer immediately.
         setTilesReady(true);

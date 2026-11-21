@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@maplibre/maplibre-gl-leaflet": "^0.1.4",
+    "@maptiler/leaflet-maptilersdk": "^4.1.1",
     "@phosphor-icons/react": "^2.1.10",
     "@protomaps/basemaps": "^5.7.2",
     "@tanstack/react-query": "^5.79.0",
