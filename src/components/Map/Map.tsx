@@ -1,6 +1,5 @@
 import { components } from "@/types";
-import { AggregatedSearchResults, Bounds, computeEventsByDay, fetchApi, MAP_TILER_API_KEY, MOBILE_BREAKPOINT } from "@/utils";
-import { MaptilerLayer } from "@maptiler/leaflet-maptilersdk";
+import { AggregatedSearchResults, Bounds, computeEventsByDay, fetchApi, MOBILE_BREAKPOINT } from "@/utils";
 import L, { Map as LeafletMap } from "leaflet";
 import "leaflet-defaulticon-compatibility";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
@@ -11,6 +10,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChurchMarker, AggregationMarker, CurrentPositionMarker } from "./Markers";
 import { useDateFilter } from "@/hooks/useDateFilter";
+import { mountBasemap } from "./basemap";
 
 const getAggregationUuid = (
   aggregation: components["schemas"]["SearchResultOut"]["aggregations"][number],
@@ -120,23 +120,13 @@ const Map = ({
         (window as any).__map = map;
       }
 
-      // MaptilerLayer requires WebGL2 — check support before creating the
+      // Both basemaps require WebGL2 — check support before creating the
       // layer to avoid a partially-added zombie instance that crashes on events
       const canvas = document.createElement("canvas");
       const gl = canvas.getContext("webgl2");
       if (gl) {
-        const layer = new MaptilerLayer({
-          apiKey: MAP_TILER_API_KEY || "",
-          // The Streets style hardcodes {name:en} on country/state/city/town
-          // labels, so without this the map reads "New Aquitaine"/"Dunkirk".
-          language: "fr",
-        }).addTo(map);
         // Reveal the map (fade out the shimmer) on first full render.
-        try {
-          layer.getMaptilerSDKMap().once("load", () => setTilesReady(true));
-        } catch {
-          setTilesReady(true);
-        }
+        void mountBasemap(map, () => setTilesReady(true));
       } else {
         // No WebGL2 → no tile layer to wait for; drop the shimmer immediately.
         setTilesReady(true);

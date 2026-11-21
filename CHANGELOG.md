@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-21
+
+### Added
+
+- Churches are labelled by name on the map when zoomed in close.
+
+### Changed
+
+- The map is drawn from Confessio's own servers instead of MapTiler, with a
+  calmer style: paper-toned background, softer road colours, no shop or
+  road-number clutter, and soft 3D buildings when zoomed in. It reaches
+  visitors gradually, behind the `self-hosted-basemap` PostHog flag (starting
+  at 0%). Everyone else keeps the MapTiler map, which also takes over if the
+  new one fails to load. `?basemap=protomaps`, `?basemap=maptiler` and
+  `?basemap=auto` force or reset the choice in one browser.
+- Community feedback on the church card uses the new issues, approvals and
+  notes API. Current feedback comes first. Resolved reports and expired notes
+  are tucked behind an "Anciens retours" section. Team replies show as
+  "Réponse de l'équipe Confessio", and photos are dated and sorted with the
+  rest.
+
 ## [1.2.0] - 2026-10-08
 
 ### Added

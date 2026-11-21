@@ -18,7 +18,7 @@ Saint-Martin and Saint-Barthélemy, each with a ~15 km margin
 Natural Earth 10m). The Pacific territories are left out because the backend rejects
 98x zipcodes (`timezone_service.py`).
 
-## Phase 1: serve the tiles (`../confessio`). Done, not run on prod yet
+## Phase 1: serve the tiles (`../confessio`). Done, live on prod since 2026-10-23
 
 Role `tiles_install`: the pinned `pmtiles` CLI, Noto Sans glyphs and the `light`
 sprites from `protomaps/basemaps-assets`, `pmtiles extract --region` into

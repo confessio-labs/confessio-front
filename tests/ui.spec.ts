@@ -159,22 +159,112 @@ test.describe("church card — contribution UI", () => {
   });
 });
 
-test.describe("church card — replies", () => {
-  const REPORT_UUID = "0b8f6a3e-6c4f-4d55-9a57-2f1d0c7e9b11";
+test.describe("church card — submissions", () => {
+  const openFork = async (page: Page) => {
+    await openChurchCard(page);
+    await page
+      .getByRole("button", { name: /Compléter l'information ou signaler/i })
+      .click();
+  };
 
-  test("a reply posts a comment threaded under its report", async ({
+  test("a validation posts an approval", async ({ page }) => {
+    await openChurchCard(page);
+    await page
+      .getByRole("button", { name: /Confirmer que ces horaires/i })
+      .click();
+
+    const request = page.waitForRequest(
+      (r) => r.url().endsWith("/approvals") && r.method() === "POST",
+    );
+    await page.getByRole("button", { name: "Valider" }).click();
+
+    expect((await request).postDataJSON()).toMatchObject({
+      website_uuid: churchDetails.website.uuid,
+      church_uuid: CHURCH_UUID,
+      content: null,
+    });
+  });
+
+  test("a text complement posts a text note with its ttl", async ({
     page,
   }) => {
+    await openFork(page);
+    await page
+      .getByRole("button", { name: "Compléter l'information", exact: true })
+      .click();
+    await page.locator("textarea").fill("Aussi le samedi à 18h");
+    await page.getByRole("button", { name: "1 mois" }).click();
+
+    const request = page.waitForRequest(
+      (r) => r.url().endsWith("/text_notes") && r.method() === "POST",
+    );
+    await page.getByRole("button", { name: "Envoyer mon complément" }).click();
+
+    expect((await request).postDataJSON()).toMatchObject({
+      website_uuid: churchDetails.website.uuid,
+      content: "Aussi le samedi à 18h",
+      ttl: "one_month",
+    });
+  });
+
+  test("a photo complement posts a file note with caption and ttl", async ({
+    page,
+  }) => {
+    await openFork(page);
+    await page
+      .getByRole("button", { name: "Compléter l'information", exact: true })
+      .click();
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "affiche.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from([0xff, 0xd8, 0xff]),
+    });
+    await page.locator("textarea").fill("Panneau de l'entrée");
+
+    const request = page.waitForRequest(
+      (r) => r.url().endsWith("/file_notes") && r.method() === "POST",
+    );
+    await page.getByRole("button", { name: "Envoyer mon complément" }).click();
+
+    const body = (await request).postData() ?? "";
+    expect(body).toContain('name="caption"\r\n\r\nPanneau de l\'entrée');
+    expect(body).toContain('name="ttl"\r\n\r\none_year');
+    expect(body).toContain('name="document"; filename="affiche.jpg"');
+  });
+
+  test("an error report posts an issue", async ({ page }) => {
+    await openFork(page);
+    await page
+      .getByRole("button", { name: "Signaler une erreur", exact: true })
+      .click();
+    await page.locator("textarea").fill("Le lien Source est mort");
+
+    const request = page.waitForRequest(
+      (r) => r.url().endsWith("/issues") && r.method() === "POST",
+    );
+    await page.getByRole("button", { name: "Envoyer mon signalement" }).click();
+
+    expect((await request).postDataJSON()).toMatchObject({
+      website_uuid: churchDetails.website.uuid,
+      content: "Le lien Source est mort",
+    });
+  });
+});
+
+test.describe("church card — replies", () => {
+  const ISSUE_UUID = "0b8f6a3e-6c4f-4d55-9a57-2f1d0c7e9b11";
+
+  test("a reply posts a comment on its issue", async ({ page }) => {
     await openChurchCard(page, {
       website: {
         ...churchDetails.website,
-        reports: [
+        issues: [
           {
-            uuid: REPORT_UUID,
+            uuid: ISSUE_UUID,
             created_at: "2026-09-28T10:00:00Z",
-            feedback_type: "error",
-            comment: "Le lien Source pointe vers l'ancien site.",
-            sub_reports: [],
+            content: "Le lien Source pointe vers l'ancien site.",
+            solved_at: null,
+            comments: [],
           },
         ],
       },
@@ -186,19 +276,125 @@ test.describe("church card — replies", () => {
     await page.getByPlaceholder("Votre réponse").fill("  C'est corrigé  ");
 
     const request = page.waitForRequest(
-      (r) => r.url().endsWith("/reports") && r.method() === "POST",
+      (r) =>
+        r.url().endsWith(`/issues/${ISSUE_UUID}/comments`) &&
+        r.method() === "POST",
     );
     await send.click();
 
-    expect((await request).postDataJSON()).toMatchObject({
-      website_uuid: churchDetails.website.uuid,
-      feedback_type: "comment",
-      comment: "C'est corrigé",
-      main_report_uuid: REPORT_UUID,
+    expect((await request).postDataJSON()).toEqual({
+      content: "C'est corrigé",
     });
     await expect(
       page.getByText("Réponse envoyée, en attente de vérification"),
     ).toBeVisible();
+  });
+
+  test("a staff comment shows as the team's answer, others by first name", async ({
+    page,
+  }) => {
+    await openChurchCard(page, {
+      website: {
+        ...churchDetails.website,
+        text_notes: [
+          {
+            uuid: "5d0c3f1e-2b7a-4c39-8f5e-1a2b3c4d5e6f",
+            created_at: "2026-11-01T10:00:00Z",
+            content: "Confessions aussi le samedi pendant l'Avent.",
+            expire_at: "2099-01-01T00:00:00Z",
+            comments: [
+              {
+                uuid: "c1",
+                created_at: "2026-11-02T10:00:00Z",
+                content: "Confirmé, j'y étais.",
+                user: { first_name: "Marie", is_staff: false },
+              },
+              {
+                uuid: "c2",
+                created_at: "2026-11-03T10:00:00Z",
+                content: "Merci ! C'est ajouté aux horaires.",
+                user: { first_name: "Etienne", is_staff: true },
+              },
+              {
+                uuid: "c3",
+                created_at: "2026-11-04T10:00:00Z",
+                content: "Et le 20 décembre ?",
+                user: null,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    await expect(
+      page.getByText("Réponse de l'équipe Confessio"),
+    ).toBeVisible();
+    await expect(page.getByText("Marie", { exact: true })).toBeVisible();
+    await expect(page.getByText("Anonyme", { exact: true })).toBeVisible();
+  });
+});
+
+test.describe("church card — archived feedback", () => {
+  const liveIssue = {
+    uuid: "11111111-1111-4111-8111-111111111111",
+    created_at: "2026-11-05T10:00:00Z",
+    content: "Plus de confessions le jeudi soir.",
+    solved_at: null,
+    comments: [],
+  };
+
+  test("resolved issues and expired notes wait behind the accordion", async ({
+    page,
+  }) => {
+    await openChurchCard(page, {
+      website: {
+        ...churchDetails.website,
+        issues: [
+          liveIssue,
+          {
+            uuid: "22222222-2222-4222-8222-222222222222",
+            created_at: "2026-09-28T10:00:00Z",
+            content: "Le lien Source pointe vers l'ancien site.",
+            solved_at: "2026-11-03T10:00:00Z",
+            comments: [],
+          },
+        ],
+        text_notes: [
+          {
+            uuid: "33333333-3333-4333-8333-333333333333",
+            created_at: "2026-10-26T10:00:00Z",
+            content: "Pas de confessions pendant la Toussaint.",
+            expire_at: "2026-11-02T10:00:00Z",
+            comments: [],
+          },
+        ],
+      },
+    });
+
+    await expect(page.getByText(liveIssue.content)).toBeVisible();
+    await expect(page.getByText("Le lien Source pointe")).toHaveCount(0);
+    await expect(page.getByText("pendant la Toussaint")).toHaveCount(0);
+
+    const toggle = page.getByRole("button", { name: /Anciens retours/ });
+    await expect(toggle).toHaveText(/2/);
+    await toggle.click();
+
+    await expect(page.getByText("Le lien Source pointe")).toBeVisible();
+    await expect(page.getByText(/Signalement résolu le/)).toBeVisible();
+    await expect(page.getByText("pendant la Toussaint")).toBeVisible();
+    await expect(page.getByText(/Complément expiré le/)).toBeVisible();
+  });
+
+  test("no accordion when nothing is archived", async ({ page }) => {
+    await openChurchCard(page, {
+      website: { ...churchDetails.website, issues: [liveIssue] },
+    });
+
+    await expect(page.getByText(liveIssue.content)).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Anciens retours/ }),
+    ).toHaveCount(0);
   });
 });
 
@@ -251,10 +447,14 @@ test.describe("church card — parish images", () => {
     await openChurchCard(page, {
       website: {
         ...churchDetails.website,
-        images: [
-          { public_url: sourceUrl, comment: null },
-          { public_url: standaloneUrl, comment: null },
-        ],
+        file_notes: [sourceUrl, standaloneUrl].map((public_url, i) => ({
+          uuid: `44444444-4444-4444-8444-44444444444${i}`,
+          created_at: "2026-10-20T10:00:00Z",
+          public_url,
+          caption: null,
+          expire_at: "2099-01-01T00:00:00Z",
+          comments: [],
+        })),
       },
       parsings: [{ image_url: sourceUrl, schedules_indices: [] }],
     });
@@ -448,6 +648,70 @@ test.describe("map", () => {
         );
       })
       .toBe(true);
+  });
+
+  const trackBasemapRequests = (page: Page) => {
+    const requests = { selfHosted: [] as string[], maptiler: [] as string[] };
+    page.on("request", (req) => {
+      const url = req.url();
+      if (url.startsWith("https://confessio.fr/tiles/france.pmtiles"))
+        requests.selfHosted.push(url);
+      if (url.includes("maptiler.com")) requests.maptiler.push(url);
+    });
+    return requests;
+  };
+
+  test("?basemap=protomaps renders from the self-hosted tiles", async ({
+    page,
+  }) => {
+    const requests = trackBasemapRequests(page);
+    await stubApi(page);
+    await page.goto("/?basemap=protomaps");
+
+    await expect(page.locator(".map-shimmer--hidden")).toHaveCount(1);
+    expect(requests.selfHosted.length).toBeGreaterThan(0);
+    expect(requests.maptiler).toEqual([]);
+  });
+
+  test("?basemap=maptiler renders from MapTiler", async ({ page }) => {
+    const requests = trackBasemapRequests(page);
+    await stubApi(page);
+    await page.goto("/?basemap=maptiler");
+
+    await expect.poll(() => requests.maptiler.length).toBeGreaterThan(0);
+    expect(requests.selfHosted).toEqual([]);
+  });
+
+  test("the basemap override sticks across visits until ?basemap=auto", async ({
+    page,
+  }) => {
+    const requests = trackBasemapRequests(page);
+    await stubApi(page);
+    await page.goto("/?basemap=protomaps");
+    await expect(page.locator(".map-shimmer--hidden")).toHaveCount(1);
+
+    requests.selfHosted.length = 0;
+    await page.goto("/");
+    await expect(page.locator(".map-shimmer--hidden")).toHaveCount(1);
+    expect(requests.selfHosted.length).toBeGreaterThan(0);
+
+    await page.goto("/?basemap=auto");
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem("basemap-override")))
+      .toBeNull();
+  });
+
+  test("falls back to MapTiler when the self-hosted archive is unreachable", async ({
+    page,
+  }) => {
+    const requests = trackBasemapRequests(page);
+    await page.route("https://confessio.fr/tiles/france.pmtiles", (route) =>
+      route.abort(),
+    );
+    await stubApi(page);
+    await page.goto("/?basemap=protomaps");
+
+    await expect.poll(() => requests.maptiler.length).toBeGreaterThan(0);
   });
 });
 

@@ -7,28 +7,39 @@ import { useKeyboardOverlap } from "@/hooks/useKeyboardOverlap";
 import { TOP_SNAP, useSheetRef } from "./ModalSheet/SheetContext";
 import {
   CameraIcon,
+  CaretDownIcon,
   CaretRightIcon,
+  CaretUpIcon,
   CheckIcon,
   CircleNotchIcon,
   ClockIcon,
   PaperPlaneTiltIcon,
   PlusIcon,
+  SealCheckIcon,
   WarningCircleIcon,
   XIcon,
 } from "@phosphor-icons/react";
 
 type ChurchDetails = components["schemas"]["ChurchDetails"];
-type ReportOut = components["schemas"]["ReportOut"];
-type FeedbackType = components["schemas"]["FeedbackTypeEnum"];
+type CommentOut = components["schemas"]["CommentOut"];
+type NoteTtl = components["schemas"]["NoteTtl"];
+type IssueIn = components["schemas"]["IssueIn"];
+type ApprovalIn = components["schemas"]["ApprovalIn"];
+type TextNoteIn = components["schemas"]["TextNoteIn"];
 
-// `valid_until` and `email` are not in the generated schema yet — the backend
-// accepts the rest of the payload and drops them. Nothing in the UI claims an
-// expiry date until /reports returns one, so a dropped field is invisible
-// rather than wrong. Remove this extension once `ReportIn` carries both.
-type ReportPayload = components["schemas"]["ReportIn"] & {
-  valid_until?: string | null;
-  email?: string | null;
+type EntryKind = "issue" | "approval" | "text_note" | "file_note";
+
+const ENDPOINTS: Record<EntryKind, string> = {
+  issue: "/issues",
+  approval: "/approvals",
+  text_note: "/text_notes",
+  file_note: "/file_notes",
 };
+
+type Submission =
+  | { kind: "issue"; payload: IssueIn }
+  | { kind: "approval"; payload: ApprovalIn }
+  | { kind: "text_note"; payload: TextNoteIn };
 
 type Step =
   | "root"
@@ -40,36 +51,47 @@ type Step =
   | "sent-complement"
   | "sent-report";
 
-type Validity = "week" | "month" | "year";
-
-const VALIDITY: { key: Validity; label: string; days: number }[] = [
-  { key: "week", label: "1 semaine", days: 7 },
-  { key: "month", label: "1 mois", days: 30 },
-  { key: "year", label: "1 an", days: 365 },
+const TTL_OPTIONS: { key: NoteTtl; label: string }[] = [
+  { key: "one_week", label: "1 semaine" },
+  { key: "one_month", label: "1 mois" },
+  { key: "one_year", label: "1 an" },
 ];
 
-const KIND_LABELS: Record<FeedbackType, string> = {
-  good: "Validation",
-  comment: "Complément",
-  error: "Signalement",
+const KIND_LABELS: Record<EntryKind, string> = {
+  issue: "Signalement",
+  approval: "Validation",
+  text_note: "Complément",
+  file_note: "Photo",
 };
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 const URL_REGEX = /(https?:\/\/[^\s]+)/g;
 
-type CommentNode = {
-  uuid: string | null;
-  comment: string;
-  created_at: string;
-  feedback_type: FeedbackType;
-  children: CommentNode[];
+type Entry = {
+  kind: EntryKind;
+  uuid: string;
+  createdAt: string;
+  content: string | null;
+  image: string | null;
+  comments: CommentOut[];
+  // When the entry left the live list: an issue's resolution, or a note's
+  // expiry once it has passed. Null while the entry is still live.
+  closedAt: string | null;
 };
 
-type LogEntry = {
-  node: CommentNode;
-  createdAt: string | null;
-  image: string | null;
+const byNewest = (a: Entry, b: Entry) => (a.createdAt < b.createdAt ? 1 : -1);
+
+const archivedLabel = (entry: Entry) => {
+  const day = formatShortDay(entry.closedAt!);
+  switch (entry.kind) {
+    case "issue":
+      return `Signalement résolu le ${day}`;
+    case "file_note":
+      return `Photo expirée le ${day}`;
+    default:
+      return `Complément expiré le ${day}`;
+  }
 };
 
 const renderCommentBody = (raw: string) => {
@@ -95,14 +117,6 @@ const renderCommentBody = (raw: string) => {
   });
 };
 
-const formatDay = (iso: string) =>
-  new Date(iso).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: APP_TIME_ZONE,
-  });
-
 const formatShortDay = (iso: string) =>
   new Date(iso).toLocaleDateString("fr-FR", {
     day: "numeric",
@@ -110,28 +124,139 @@ const formatShortDay = (iso: string) =>
     timeZone: APP_TIME_ZONE,
   });
 
-const validUntilISO = (validity: Validity) => {
-  const entry = VALIDITY.find((v) => v.key === validity)!;
-  const date = new Date();
-  date.setDate(date.getDate() + entry.days);
-  return date.toISOString();
-};
+const StaffReply = ({ comment }: { comment: CommentOut }) => (
+  <div className="mt-2.5 bg-white border border-hairline rounded-xl px-2.5 py-2 flex flex-col gap-0.5">
+    <div className="flex items-center gap-1.5">
+      <SealCheckIcon
+        size={13}
+        weight="fill"
+        className="shrink-0 text-deepblue"
+      />
+      <span className="text-[11.5px] font-semibold text-deepblue">
+        Réponse de l&apos;équipe Confessio
+      </span>
+      <span className="tabular ml-auto text-deepblue/50 text-[11px] font-medium">
+        {formatShortDay(comment.created_at)}
+      </span>
+    </div>
+    <p className="text-ink text-[12.5px] leading-normal whitespace-pre-line [overflow-wrap:anywhere]">
+      {renderCommentBody(comment.content)}
+    </p>
+    {comment.user?.first_name && (
+      <span className="text-deepblue/50 text-[11px] font-medium">
+        {comment.user.first_name}
+      </span>
+    )}
+  </div>
+);
 
-const Replies = ({ nodes }: { nodes: CommentNode[] }) => (
-  <div className="mt-2.5 pl-3 border-l border-ink/15 flex flex-col gap-2">
-    {nodes.map((child, i) => (
-      <div key={i} className="flex flex-col gap-0.5">
-        <span className="tabular text-deepblue/50 text-[11px] font-medium">
-          {formatDay(child.created_at)}
-        </span>
+const Replies = ({ comments }: { comments: CommentOut[] }) => (
+  <div className="mt-2.5 pl-3 border-l border-ink/15 flex flex-col gap-2.5">
+    {comments.map((comment) => (
+      <div key={comment.uuid} className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-1.5">
+          {comment.user?.first_name ? (
+            <span className="text-deepblue text-[11.5px] font-semibold">
+              {comment.user.first_name}
+            </span>
+          ) : (
+            <span className="text-deepblue/50 text-[11.5px] font-medium">
+              Anonyme
+            </span>
+          )}
+          <span className="tabular ml-auto text-deepblue/50 text-[11px] font-medium">
+            {formatShortDay(comment.created_at)}
+          </span>
+        </div>
         <p className="text-ink text-[12.5px] leading-normal whitespace-pre-line [overflow-wrap:anywhere]">
-          {renderCommentBody(child.comment)}
+          {renderCommentBody(comment.content)}
         </p>
-        {child.children.length > 0 && <Replies nodes={child.children} />}
       </div>
     ))}
   </div>
 );
+
+const entryIcon = (entry: Entry) => {
+  if (entry.closedAt)
+    return entry.kind === "issue" ? (
+      <CheckIcon size={11} weight="bold" />
+    ) : (
+      <ClockIcon size={11} weight="bold" />
+    );
+  switch (entry.kind) {
+    case "issue":
+      return <WarningCircleIcon size={11} weight="bold" />;
+    case "approval":
+      return <CheckIcon size={11} weight="bold" />;
+    case "file_note":
+      return <CameraIcon size={11} />;
+    default:
+      return <PlusIcon size={11} weight="bold" />;
+  }
+};
+
+const EntryCard = ({
+  entry,
+  children,
+}: {
+  entry: Entry;
+  children?: React.ReactNode;
+}) => (
+  <div className="bg-paper rounded-xl px-3 py-2.5 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.2)]">
+    <div className="flex items-center gap-1.5 mb-1.5">
+      <KindChip
+        label={entry.closedAt ? archivedLabel(entry) : KIND_LABELS[entry.kind]}
+        tone={entry.kind === "issue" && !entry.closedAt ? "warn" : "neutral"}
+        icon={entryIcon(entry)}
+      />
+      <span className="tabular ml-auto text-[10.5px] font-medium text-deepblue/50">
+        {formatShortDay(entry.createdAt)}
+      </span>
+    </div>
+    {entry.image ? (
+      <div className="flex flex-col gap-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={entry.image}
+          // object-contain, never cover: these are photos of
+          // schedule boards, so cropping would eat the text.
+          alt="Photo des horaires"
+          loading="lazy"
+          className="w-full h-auto max-h-[240px] object-contain rounded-lg"
+        />
+        {entry.content && (
+          <p className="text-ink/70 text-[12px] leading-normal whitespace-pre-line [overflow-wrap:anywhere]">
+            {renderCommentBody(entry.content)}
+          </p>
+        )}
+      </div>
+    ) : (
+      entry.content && (
+        <p className="text-ink text-[12.5px] leading-normal whitespace-pre-line [overflow-wrap:anywhere]">
+          {renderCommentBody(entry.content)}
+        </p>
+      )
+    )}
+    <Thread comments={entry.comments} />
+    {children}
+  </div>
+);
+
+const Thread = ({ comments }: { comments: CommentOut[] }) => {
+  const sorted = [...comments].sort((a, b) =>
+    a.created_at < b.created_at ? -1 : 1,
+  );
+  const staff = sorted.filter((c) => c.user?.is_staff);
+  const others = sorted.filter((c) => !c.user?.is_staff);
+  return (
+    <>
+      {staff.map((comment) => (
+        <StaffReply key={comment.uuid} comment={comment} />
+      ))}
+      {others.length > 0 && <Replies comments={others} />}
+    </>
+  );
+};
 
 // Not scrollIntoView: it also scrolls every scrollable ancestor, including
 // react-modal-sheet's fixed `overflow: hidden` wrapper. While the sheet is
@@ -356,7 +481,7 @@ const CommunityFeedback = ({
   const [comment, setComment] = useState("");
   const [commentOpen, setCommentOpen] = useState(false);
   const [email, setEmail] = useState("");
-  const [validity, setValidity] = useState<Validity>("year");
+  const [ttl, setTtl] = useState<NoteTtl>("one_year");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -364,81 +489,75 @@ const CommunityFeedback = ({
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [sentReplyTo, setSentReplyTo] = useState<string | null>(null);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [now] = useState(() => Date.now());
 
-  const { upvotes, lastGoodAt, entries } = useMemo(() => {
-    const reports = churchDetails?.website?.reports ?? [];
-    let up = 0;
-    let latestGood: string | null = null;
+  const website = churchDetails?.website;
+  const { upvotes, lastGoodAt, liveEntries, archivedEntries } = useMemo(() => {
+    const approvals = website?.approvals ?? [];
+    const lastApproval = approvals.reduce<string | null>(
+      (latest, a) => (!latest || a.created_at > latest ? a.created_at : latest),
+      null,
+    );
 
-    const walk = (list: ReportOut[]) => {
-      for (const r of list) {
-        if (r.feedback_type === "good") {
-          up++;
-          if (!latestGood || r.created_at > latestGood)
-            latestGood = r.created_at;
-        }
-        walk(r.sub_reports);
-      }
-    };
-    walk(reports);
-
-    const build = (list: ReportOut[]): CommentNode[] => {
-      const result: CommentNode[] = [];
-      for (const r of list) {
-        const children = build(r.sub_reports);
-        if (r.comment) {
-          result.push({
-            uuid: r.uuid,
-            comment: r.comment,
-            created_at: r.created_at,
-            feedback_type: r.feedback_type,
-            children,
-          });
-        } else {
-          result.push(...children);
-        }
-      }
-      return result;
-    };
-
-    const images = churchDetails?.website?.images ?? [];
     const sourceImageUrls = new Set(
       (churchDetails?.parsings ?? [])
         .map((p) => p.image_url)
         .filter((url): url is string => !!url),
     );
+    const expiredAt = (expireAt: string) =>
+      Date.parse(expireAt) <= now ? expireAt : null;
 
-    // `ImageOut` carries no timestamp, so photos cannot be dated or
-    // interleaved with the reports — they follow them, undated.
-    const list: LogEntry[] = [
-      ...build(reports)
-        .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
-        .map((node) => ({
-          node,
-          createdAt: node.created_at,
+    const all: Entry[] = [
+      ...(website?.issues ?? []).map((issue) => ({
+        kind: "issue" as const,
+        uuid: issue.uuid,
+        createdAt: issue.created_at,
+        content: issue.content,
+        image: null,
+        comments: issue.comments,
+        closedAt: issue.solved_at,
+      })),
+      ...approvals
+        .filter((approval) => approval.content)
+        .map((approval) => ({
+          kind: "approval" as const,
+          uuid: approval.uuid,
+          createdAt: approval.created_at,
+          content: approval.content,
           image: null,
+          comments: approval.comments,
+          closedAt: null,
         })),
-      ...images
-        .filter((image) => !sourceImageUrls.has(image.public_url))
-        .map((image) => ({
-          node: {
-            uuid: null,
-            comment: image.comment ?? "",
-            created_at: "",
-            feedback_type: "comment" as FeedbackType,
-            children: [] as CommentNode[],
-          },
-          createdAt: null,
-          image: image.public_url,
+      ...(website?.text_notes ?? []).map((note) => ({
+        kind: "text_note" as const,
+        uuid: note.uuid,
+        createdAt: note.created_at,
+        content: note.content,
+        image: null,
+        comments: note.comments,
+        closedAt: expiredAt(note.expire_at),
+      })),
+      ...(website?.file_notes ?? [])
+        .filter((note) => !sourceImageUrls.has(note.public_url))
+        .map((note) => ({
+          kind: "file_note" as const,
+          uuid: note.uuid,
+          createdAt: note.created_at,
+          content: note.caption,
+          image: note.public_url,
+          comments: note.comments,
+          closedAt: expiredAt(note.expire_at),
         })),
-    ];
+    ].sort(byNewest);
 
-    return { upvotes: up, lastGoodAt: latestGood, entries: list };
-  }, [
-    churchDetails?.website?.reports,
-    churchDetails?.website?.images,
-    churchDetails?.parsings,
-  ]);
+    return {
+      upvotes: approvals.length,
+      lastGoodAt: lastApproval,
+      liveEntries: all.filter((entry) => !entry.closedAt),
+      archivedEntries: all.filter((entry) => entry.closedAt),
+    };
+  }, [website, churchDetails?.parsings, now]);
 
   useEffect(() => {
     if (!photoFile) {
@@ -450,48 +569,49 @@ const CommunityFeedback = ({
     return () => URL.revokeObjectURL(url);
   }, [photoFile]);
 
-  const postReport = useMutation({
-    mutationFn: async (payload: ReportPayload) =>
-      fetchApi("/reports", {
+  const postSubmission = useMutation({
+    mutationFn: async ({ kind, payload }: Submission) =>
+      fetchApi(ENDPOINTS[kind], {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       }),
-    onSuccess: (_data, payload) => {
+    onSuccess: (_data, { kind }) => {
       queryClient.invalidateQueries({
         queryKey: ["churchDetails", church.uuid],
       });
-      if (payload.feedback_type === "good") {
+      if (kind === "approval") {
         posthog.capture("church_upvoted", {
           church_uuid: church.uuid,
           church_name: church.name,
         });
       }
       setStep(
-        payload.feedback_type === "good"
+        kind === "approval"
           ? "sent-good"
-          : payload.feedback_type === "error"
+          : kind === "issue"
             ? "sent-report"
             : "sent-complement",
       );
     },
   });
 
-  const postImage = useMutation({
+  const postFileNote = useMutation({
     mutationFn: async () => {
       if (!websiteUuid) throw new Error("missing website uuid");
       if (!photoFile) throw new Error("missing file");
       const form = new FormData();
       form.append("website_uuid", websiteUuid);
-      if (comment.trim()) form.append("comment", comment.trim());
+      form.append("church_uuid", church.uuid);
+      if (comment.trim()) form.append("caption", comment.trim());
       if (email.trim()) form.append("email", email.trim());
-      form.append("valid_until", validUntilISO(validity));
+      form.append("ttl", ttl);
       form.append("document", photoFile);
       // Do NOT set Content-Type — the browser sets the multipart boundary.
-      return fetchApi("/images", {
+      return fetchApi(ENDPOINTS.file_note, {
         method: "POST",
         body: form,
-      }) as Promise<components["schemas"]["ImageOut"]>;
+      }) as Promise<components["schemas"]["FileNoteOut"]>;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -506,17 +626,23 @@ const CommunityFeedback = ({
   });
 
   const postReply = useMutation({
-    mutationFn: async (payload: ReportPayload) =>
-      fetchApi("/reports", {
+    mutationFn: async ({
+      entry,
+      payload,
+    }: {
+      entry: Entry;
+      payload: components["schemas"]["CommentIn"];
+    }) =>
+      fetchApi(`${ENDPOINTS[entry.kind]}/${entry.uuid}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       }),
-    onSuccess: (_data, payload) => {
+    onSuccess: (_data, { entry }) => {
       queryClient.invalidateQueries({
         queryKey: ["churchDetails", church.uuid],
       });
-      setSentReplyTo(payload.main_report_uuid ?? null);
+      setSentReplyTo(entry.uuid);
       setReplyTo(null);
       setReplyText("");
     },
@@ -529,29 +655,22 @@ const CommunityFeedback = ({
     postReply.reset();
   };
 
-  const submitReply = () => {
-    if (!websiteUuid || !replyTo) return;
-    postReply.mutate({
-      website_uuid: websiteUuid,
-      church_uuid: church.uuid,
-      feedback_type: "comment",
-      comment: replyText.trim(),
-      main_report_uuid: replyTo,
-    });
+  const submitReply = (entry: Entry) => {
+    postReply.mutate({ entry, payload: { content: replyText.trim() } });
   };
 
   const resetDraft = () => {
     setComment("");
     setCommentOpen(false);
     setEmail("");
-    setValidity("year");
+    setTtl("one_year");
     setPhotoFile(null);
     setPhotoError(null);
     setReplyTo(null);
     setReplyText("");
     setSentReplyTo(null);
-    postReport.reset();
-    postImage.reset();
+    postSubmission.reset();
+    postFileNote.reset();
     postReply.reset();
   };
 
@@ -560,17 +679,19 @@ const CommunityFeedback = ({
     resetDraft();
   };
 
-  const submitReport = (feedback_type: FeedbackType) => {
+  const submit = (kind: Submission["kind"]) => {
     if (!websiteUuid) return;
-    postReport.mutate({
+    const base = {
       website_uuid: websiteUuid,
       church_uuid: church.uuid,
-      feedback_type,
-      error_type: null,
-      comment: comment.trim() || null,
       email: email.trim() || null,
-      valid_until: feedback_type === "comment" ? validUntilISO(validity) : null,
-    });
+    };
+    const content = comment.trim();
+    postSubmission.mutate(
+      kind === "text_note"
+        ? { kind, payload: { ...base, content, ttl } }
+        : { kind, payload: { ...base, content: content || null } },
+    );
   };
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -587,7 +708,7 @@ const CommunityFeedback = ({
       return;
     }
     setPhotoError(null);
-    postImage.reset();
+    postFileNote.reset();
     setPhotoFile(file);
   };
 
@@ -658,14 +779,14 @@ const CommunityFeedback = ({
         Valable pendant
       </span>
       <div className="flex gap-1.5">
-        {VALIDITY.map((v) => (
+        {TTL_OPTIONS.map((v) => (
           <button
             key={v.key}
             type="button"
-            onClick={() => setValidity(v.key)}
+            onClick={() => setTtl(v.key)}
             className={[
               "flex-1 rounded-full border py-1.5 text-[12px] font-semibold transition-colors",
-              validity === v.key
+              ttl === v.key
                 ? "bg-deepblue border-deepblue text-white"
                 : "bg-transparent border-hairline text-deepblue/70 hover:border-deepblue/40",
             ].join(" ")}
@@ -698,7 +819,7 @@ const CommunityFeedback = ({
   ) : null;
 
   const sendError =
-    postReport.isError || postImage.isError ? (
+    postSubmission.isError || postFileNote.isError ? (
       <p className="text-rose-600 text-[12px]">
         L&apos;envoi a échoué. Réessayez.
       </p>
@@ -727,8 +848,8 @@ const CommunityFeedback = ({
                   ? "Valider sans commentaire"
                   : "Valider"
               }
-              pending={postReport.isPending}
-              onClick={() => submitReport("good")}
+              pending={postSubmission.isPending}
+              onClick={() => submit("approval")}
             />
             {!commentOpen && (
               <button
@@ -830,10 +951,10 @@ const CommunityFeedback = ({
             {sendError}
             <SendButton
               label="Envoyer mon complément"
-              pending={postReport.isPending || postImage.isPending}
+              pending={postSubmission.isPending || postFileNote.isPending}
               disabled={!comment.trim() && !photoFile}
               onClick={() =>
-                photoFile ? postImage.mutate() : submitReport("comment")
+                photoFile ? postFileNote.mutate() : submit("text_note")
               }
             />
           </>
@@ -859,9 +980,9 @@ const CommunityFeedback = ({
             {sendError}
             <SendButton
               label="Envoyer mon signalement"
-              pending={postReport.isPending}
+              pending={postSubmission.isPending}
               disabled={!comment.trim()}
-              onClick={() => submitReport("error")}
+              onClick={() => submit("issue")}
             />
           </>
         );
@@ -995,82 +1116,69 @@ const CommunityFeedback = ({
         )}
       </div>
 
-      {step === "root" && entries.length > 0 && (
-        <div className="px-4 pb-5 flex flex-col gap-2">
-          {entries.map(({ node, image, createdAt }, i) => (
-            <div
-              key={i}
-              ref={node.uuid && node.uuid === replyTo ? replyRef : undefined}
-              // Same keyboard padding as the top panel, see keyboardOverlap.
-              style={
-                node.uuid && node.uuid === replyTo
-                  ? { paddingBottom: keyboardOverlap }
-                  : undefined
-              }
-            >
-              <div className="bg-paper rounded-xl px-3 py-2.5 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.2)]">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <KindChip
-                    label={image ? "Photo" : KIND_LABELS[node.feedback_type]}
-                    tone={node.feedback_type === "error" ? "warn" : "neutral"}
-                    icon={
-                      image ? (
-                        <CameraIcon size={11} />
-                      ) : node.feedback_type === "error" ? (
-                        <WarningCircleIcon size={11} weight="bold" />
-                      ) : node.feedback_type === "good" ? (
-                        <CheckIcon size={11} weight="bold" />
-                      ) : (
-                        <PlusIcon size={11} weight="bold" />
-                      )
-                    }
-                  />
-                  {createdAt && (
-                    <span className="tabular ml-auto text-[10.5px] font-medium text-deepblue/50">
-                      {formatShortDay(createdAt)}
-                    </span>
-                  )}
-                </div>
-                {image ? (
-                  <div className="flex flex-col gap-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={image}
-                      // object-contain, never cover: these are photos of
-                      // schedule boards, so cropping would eat the text.
-                      alt="Photo des horaires"
-                      loading="lazy"
-                      className="w-full h-auto max-h-[240px] object-contain rounded-lg"
+      {step === "root" &&
+        (liveEntries.length > 0 || archivedEntries.length > 0) && (
+          <div className="px-4 pb-5 flex flex-col gap-2">
+            {liveEntries.map((entry) => (
+              <div
+                key={entry.uuid}
+                ref={entry.uuid === replyTo ? replyRef : undefined}
+                // Same keyboard padding as the top panel, see keyboardOverlap.
+                style={
+                  entry.uuid === replyTo
+                    ? { paddingBottom: keyboardOverlap }
+                    : undefined
+                }
+              >
+                <EntryCard entry={entry}>
+                  {canReport && (
+                    <ReplyControls
+                      open={replyTo === entry.uuid}
+                      sent={sentReplyTo === entry.uuid}
+                      text={replyText}
+                      pending={postReply.isPending}
+                      failed={postReply.isError}
+                      onToggle={() => toggleReply(entry.uuid)}
+                      onChange={setReplyText}
+                      onSend={() => submitReply(entry)}
                     />
-                    {node.comment && (
-                      <p className="text-ink/70 text-[12px] leading-normal whitespace-pre-line [overflow-wrap:anywhere]">
-                        {renderCommentBody(node.comment)}
-                      </p>
-                    )}
-                  </div>
+                  )}
+                </EntryCard>
+              </div>
+            ))}
+            {archivedEntries.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setArchiveOpen(!archiveOpen)}
+                aria-expanded={archiveOpen}
+                className={[
+                  "mt-1 w-full min-h-[44px] rounded-full border inline-flex items-center justify-center gap-1.5 text-[13px] font-semibold text-white/92 transition-colors",
+                  archiveOpen
+                    ? "bg-white/16 border-white/45"
+                    : "bg-white/7 border-white/14 hover:bg-white/12",
+                ].join(" ")}
+              >
+                Anciens retours
+                <span className="tabular text-white/55">
+                  {archivedEntries.length}
+                </span>
+                {archiveOpen ? (
+                  <CaretUpIcon size={13} weight="bold" className="text-white/55" />
                 ) : (
-                  <p className="text-ink text-[12.5px] leading-normal whitespace-pre-line [overflow-wrap:anywhere]">
-                    {renderCommentBody(node.comment)}
-                  </p>
-                )}
-                {node.children.length > 0 && <Replies nodes={node.children} />}
-                {node.uuid && canReport && (
-                  <ReplyControls
-                    open={replyTo === node.uuid}
-                    sent={sentReplyTo === node.uuid}
-                    text={replyText}
-                    pending={postReply.isPending}
-                    failed={postReply.isError}
-                    onToggle={() => toggleReply(node.uuid!)}
-                    onChange={setReplyText}
-                    onSend={submitReply}
+                  <CaretDownIcon
+                    size={13}
+                    weight="bold"
+                    className="text-white/55"
                   />
                 )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+              </button>
+            )}
+            {archiveOpen &&
+              archivedEntries.map((entry) => (
+                <EntryCard key={entry.uuid} entry={entry} />
+              ))}
+          </div>
+        )}
     </div>
   );
 };

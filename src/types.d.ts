@@ -166,7 +166,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Api Front Post Reports */
+        /**
+         * Api Front Post Reports
+         * @deprecated
+         */
         post: operations["front_front_api_api_front_post_reports"];
         delete?: never;
         options?: never;
@@ -183,8 +186,147 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Api Front Post Images */
+        /**
+         * Api Front Post Images
+         * @deprecated
+         */
         post: operations["front_front_api_api_front_post_images"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/front/api/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Api Front Post Issue */
+        post: operations["front_front_api_api_front_post_issue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/front/api/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Api Front Post Approval */
+        post: operations["front_front_api_api_front_post_approval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/front/api/text_notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Api Front Post Text Note */
+        post: operations["front_front_api_api_front_post_text_note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/front/api/file_notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Api Front Post File Note */
+        post: operations["front_front_api_api_front_post_file_note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/front/api/issues/{issue_uuid}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Api Front Post Issue Comment */
+        post: operations["front_front_api_api_front_post_issue_comment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/front/api/approvals/{approval_uuid}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Api Front Post Approval Comment */
+        post: operations["front_front_api_api_front_post_approval_comment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/front/api/text_notes/{text_note_uuid}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Api Front Post Text Note Comment */
+        post: operations["front_front_api_api_front_post_text_note_comment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/front/api/file_notes/{file_note_uuid}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Api Front Post File Note Comment */
+        post: operations["front_front_api_api_front_post_file_note_comment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -276,6 +418,23 @@ export interface components {
             /** Detail */
             detail: string;
         };
+        /** ApprovalOut */
+        ApprovalOut: {
+            /**
+             * Uuid
+             * Format: uuid
+             */
+            uuid: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Content */
+            content: string | null;
+            /** Comments */
+            comments: components["schemas"]["CommentOut"][];
+        };
         /** ChurchDetails */
         ChurchDetails: {
             /**
@@ -303,11 +462,51 @@ export interface components {
             /** Parsings */
             parsings: components["schemas"]["ParsingOut"][];
         };
+        /** CommentOut */
+        CommentOut: {
+            /**
+             * Uuid
+             * Format: uuid
+             */
+            uuid: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Content */
+            content: string;
+            user: components["schemas"]["UserOut"] | null;
+        };
         /**
          * FeedbackTypeEnum
          * @enum {string}
          */
         FeedbackTypeEnum: "good" | "error" | "comment";
+        /** FileNoteOut */
+        FileNoteOut: {
+            /**
+             * Uuid
+             * Format: uuid
+             */
+            uuid: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Public Url */
+            public_url: string;
+            /** Caption */
+            caption: string | null;
+            /**
+             * Expire At
+             * Format: date-time
+             */
+            expire_at: string;
+            /** Comments */
+            comments: components["schemas"]["CommentOut"][];
+        };
         /** ImageOut */
         ImageOut: {
             /**
@@ -319,6 +518,25 @@ export interface components {
             public_url: string;
             /** Comment */
             comment: string | null;
+        };
+        /** IssueOut */
+        IssueOut: {
+            /**
+             * Uuid
+             * Format: uuid
+             */
+            uuid: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Content */
+            content: string;
+            /** Solved At */
+            solved_at: string | null;
+            /** Comments */
+            comments: components["schemas"]["CommentOut"][];
         };
         /** ParsingOut */
         ParsingOut: {
@@ -368,6 +586,35 @@ export interface components {
          * @enum {string}
          */
         SourceTypeEnum: "parsing" | "oclocher";
+        /** TextNoteOut */
+        TextNoteOut: {
+            /**
+             * Uuid
+             * Format: uuid
+             */
+            uuid: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Content */
+            content: string;
+            /**
+             * Expire At
+             * Format: date-time
+             */
+            expire_at: string;
+            /** Comments */
+            comments: components["schemas"]["CommentOut"][];
+        };
+        /** UserOut */
+        UserOut: {
+            /** First Name */
+            first_name: string;
+            /** Is Staff */
+            is_staff: boolean;
+        };
         /** WebsiteOut */
         WebsiteOut: {
             /**
@@ -379,10 +626,24 @@ export interface components {
             name: string;
             /** Home Url */
             home_url: string;
-            /** Reports */
+            /**
+             * Reports
+             * @deprecated
+             */
             reports: components["schemas"]["ReportOut"][];
-            /** Images */
+            /**
+             * Images
+             * @deprecated
+             */
             images: components["schemas"]["ImageOut"][];
+            /** Issues */
+            issues: components["schemas"]["IssueOut"][];
+            /** Approvals */
+            approvals: components["schemas"]["ApprovalOut"][];
+            /** Text Notes */
+            text_notes: components["schemas"]["TextNoteOut"][];
+            /** File Notes */
+            file_notes: components["schemas"]["FileNoteOut"][];
         };
         /** AutocompleteItem */
         AutocompleteItem: {
@@ -452,11 +713,6 @@ export interface components {
             /** Longitude */
             longitude: number;
         };
-        /**
-         * ErrorTypeEnum
-         * @enum {string}
-         */
-        ErrorTypeEnum: "outdated" | "churches" | "paragraphs" | "schedules";
         /** ReportIn */
         ReportIn: {
             /**
@@ -467,11 +723,70 @@ export interface components {
             /** Church Uuid */
             church_uuid?: string | null;
             feedback_type: components["schemas"]["FeedbackTypeEnum"];
-            error_type?: components["schemas"]["ErrorTypeEnum"] | null;
             /** Comment */
             comment?: string | null;
             /** Main Report Uuid */
             main_report_uuid?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Valid Until */
+            valid_until?: string | null;
+        };
+        /** IssueIn */
+        IssueIn: {
+            /**
+             * Website Uuid
+             * Format: uuid
+             */
+            website_uuid: string;
+            /** Church Uuid */
+            church_uuid?: string | null;
+            /** Content */
+            content?: string | null;
+            /** Email */
+            email?: string | null;
+        };
+        /** ApprovalIn */
+        ApprovalIn: {
+            /**
+             * Website Uuid
+             * Format: uuid
+             */
+            website_uuid: string;
+            /** Church Uuid */
+            church_uuid?: string | null;
+            /** Content */
+            content?: string | null;
+            /** Email */
+            email?: string | null;
+        };
+        /**
+         * NoteTtl
+         * @enum {string}
+         */
+        NoteTtl: "one_week" | "one_month" | "one_year";
+        /** TextNoteIn */
+        TextNoteIn: {
+            /**
+             * Website Uuid
+             * Format: uuid
+             */
+            website_uuid: string;
+            /** Church Uuid */
+            church_uuid?: string | null;
+            /** Content */
+            content: string;
+            /** Email */
+            email?: string | null;
+            /** @default one_year */
+            ttl: components["schemas"]["NoteTtl"];
+        };
+        /** CommentIn */
+        CommentIn: {
+            /** Content */
+            content: string;
+            /** Email */
+            email?: string | null;
         };
     };
     responses: never;
@@ -804,6 +1119,8 @@ export interface operations {
                     website_uuid: string;
                     /** Comment */
                     comment?: string | null;
+                    /** Email */
+                    email?: string | null;
                     /**
                      * Document
                      * Format: binary
@@ -820,6 +1137,369 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImageOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    front_front_api_api_front_post_issue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    front_front_api_api_front_post_approval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    front_front_api_api_front_post_text_note: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TextNoteIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextNoteOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    front_front_api_api_front_post_file_note: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Website Uuid
+                     * Format: uuid
+                     */
+                    website_uuid: string;
+                    /** Church Uuid */
+                    church_uuid?: string | null;
+                    /** Caption */
+                    caption?: string | null;
+                    /** Email */
+                    email?: string | null;
+                    /** @default one_year */
+                    ttl?: "one_week" | "one_month" | "one_year";
+                    /**
+                     * Document
+                     * Format: binary
+                     */
+                    document: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileNoteOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    front_front_api_api_front_post_issue_comment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    front_front_api_api_front_post_approval_comment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                approval_uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    front_front_api_api_front_post_text_note_comment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                text_note_uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorSchema"];
+                };
+            };
+        };
+    };
+    front_front_api_api_front_post_file_note_comment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_note_uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentOut"];
                 };
             };
             /** @description Bad Request */

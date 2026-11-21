@@ -15,7 +15,7 @@ A modern web application for finding Catholic churches and confession times, des
 - TypeScript
 - Tailwind CSS
 - TanStack Query
-- Leaflet/MapTiler for interactive maps
+- Leaflet + MapLibre for interactive maps, on self-hosted Protomaps tiles
 
 ## Development
 
