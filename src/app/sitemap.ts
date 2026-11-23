@@ -42,6 +42,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 1,
     },
+    {
+      url: `${BASE_URL}/dioceses`,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
     ...dioceseEntries,
     ...cityEntries,
     ...churchEntries,

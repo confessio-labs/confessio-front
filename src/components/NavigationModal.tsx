@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useAtom } from "jotai";
 import { isModeratorModeAtom } from "@/atoms";
+import { HOME_PATH } from "@/utils";
 
 const MODERATOR_TAPS = 5;
 const TAP_WINDOW_MS = 1500;
@@ -78,6 +79,12 @@ const NavigationModal = ({
         <div className="flex flex-col gap-0.5 items-center justify-cente text-sm">
           <Link
             className="py-2 bg-white text-deepblue w-full text-center rounded-t-xl md:text-lg"
+            href={HOME_PATH}
+          >
+            Accueil
+          </Link>
+          <Link
+            className="py-2 bg-white text-deepblue w-full text-center md:text-lg"
             href="https://confessio.fr/contact"
           >
             Nous contacter
@@ -112,7 +119,7 @@ const NavigationModal = ({
         <p className="text-xs text-gray-300 text-center">
           Code open-source disponible sur{" "}
           <Link
-            href="https://github.com/etiennecallies/confessio"
+            href="https://github.com/confessio-labs"
             className="underline"
           >
             Github

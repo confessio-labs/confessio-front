@@ -1,9 +1,10 @@
 import { components } from "@/types";
-import { type AutocompleteResults, fetchApi } from "@/utils";
+import { type AutocompleteResults, fetchApi, HOME_PATH } from "@/utils";
 import { useMutation } from "@tanstack/react-query";
 import clsx from "clsx";
 import { Map } from "leaflet";
 import Image from "next/image";
+import Link from "next/link";
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import { NavigationModal } from "./NavigationModal";
 import { usePathname } from "next/navigation";
@@ -22,6 +23,7 @@ import {
 } from "@phosphor-icons/react";
 import { Icon } from "@phosphor-icons/react/dist/lib/types";
 import posthog from "posthog-js";
+import { saveLastSearch } from "@/lib/lastSearch";
 
 const mapItemTypeToIcon: Record<string, Icon> = {
   church: ChurchIcon,
@@ -32,7 +34,7 @@ const mapItemTypeToIcon: Record<string, Icon> = {
 // fitBounds picks the highest zoom at which the box fits, so a viewport-sized
 // box at `zoom` lands on `zoom`. Shrunk by 10% so float rounding in
 // getBoundsZoom doesn't drop it one level.
-const viewportBoundsAround = (lat: number, lng: number, zoom: number) => {
+export const viewportBoundsAround = (lat: number, lng: number, zoom: number) => {
   const degreesPerPixel = 360 / (256 * 2 ** zoom);
   const halfLng = (window.innerWidth / 2) * degreesPerPixel * 0.9;
   const halfLat =
@@ -124,13 +126,13 @@ export const SearchInput = ({
       if (!item.latitude || !item.longitude) return;
       inputRef.current?.blur();
       const zoomLevel = item.type === "municipality" ? 13 : 15;
+      // A freshly mounted map ignores ?center; it only fits ?bounds.
+      const href = `/?bounds=${viewportBoundsAround(item.latitude, item.longitude, zoomLevel)}`;
+      saveLastSearch({ label: item.name, href });
       if (map) {
         map.setView([item.latitude, item.longitude], zoomLevel);
       } else {
-        // A freshly mounted map ignores ?center; it only fits ?bounds.
-        router.push(
-          `/?bounds=${viewportBoundsAround(item.latitude, item.longitude, zoomLevel)}`,
-        );
+        router.push(href);
       }
     },
     [map, router],
@@ -145,6 +147,7 @@ export const SearchInput = ({
   const navigateToChurch = useCallback(
     (uuid: string, item: components["schemas"]["AutocompleteItem"]) => {
       inputRef.current?.blur();
+      saveLastSearch({ label: item.name, href: `/church/${uuid}` });
       const params = new URLSearchParams(window.location.search);
       if (item.latitude && item.longitude) {
         params.set("center", `${item.latitude},${item.longitude}`);
@@ -221,14 +224,19 @@ export const SearchInput = ({
             </button>
           ) : (
             placement === "map" && (
-            <div className="self-center shrink-0 flex items-center justify-center size-8">
+            <Link
+              href={HOME_PATH}
+              aria-label="Accueil"
+              title="Accueil"
+              className="self-center shrink-0 flex items-center justify-center size-8 rounded-full"
+            >
               <Image
                 src="/confessioLogoBlue.svg"
                 alt="Logo de Confessio"
                 width={24}
                 height={24}
               />
-            </div>
+            </Link>
             )
           )}
           <input

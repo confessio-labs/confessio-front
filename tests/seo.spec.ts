@@ -126,6 +126,7 @@ test.describe("SEO smoke", () => {
     const xml = await res.text();
     expect(xml).toContain("<urlset");
     expect(xml).toContain("<loc>https://confessio.fr</loc>");
+    expect(xml).toContain("<loc>https://confessio.fr/dioceses</loc>");
 
     const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(
       (m) => m[1] ?? "",
@@ -158,6 +159,28 @@ test.describe("SEO smoke", () => {
       );
     });
   }
+
+  test("dioceses index links every diocese", async ({ request }) => {
+    await assertSeo(request, "/dioceses", {
+      titleIncludes: "diocèse",
+      descriptionIncludes: "confession",
+      requireJsonLd: true,
+    });
+
+    const html = await (await request.get("/dioceses")).text();
+    const body = html.replace(/<script[\s\S]*?<\/script>/g, "");
+    expect(body).toMatch(/<h1[^>]*>Horaires de confession par diocèse<\/h1>/);
+    expect(html).toContain(
+      'rel="canonical" href="https://confessio.fr/dioceses"',
+    );
+    const links = new Set(
+      [...body.matchAll(/href="\/diocese\/([a-z0-9-]+)"/g)].map((m) => m[1]),
+    );
+    expect(links.size, "/dioceses should link 50+ dioceses").toBeGreaterThan(
+      50,
+    );
+    for (const slug of DIOCESE_SLUGS) expect(links).toContain(slug);
+  });
 
   test("diocese page renders its church list as HTML", async ({ request }) => {
     const html = await (await request.get("/diocese/paris")).text();
