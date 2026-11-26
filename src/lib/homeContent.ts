@@ -3,7 +3,6 @@ import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
 import defaultContent from "@/app/home/content.default.json";
 
-export const HOME_CONTENT_TAG = "home-content";
 export const PREVIEW_VERSION_COOKIE = "cms_preview_version";
 
 const text = z.string().trim().min(1);
@@ -152,7 +151,7 @@ async function fetchFromCms(version: string | undefined): Promise<unknown> {
   try {
     const response = await fetch(`${baseUrl}/items/home${query}`, {
       headers: { authorization: `Bearer ${token}` },
-      next: { revalidate: 3600, tags: [HOME_CONTENT_TAG] },
+      next: { revalidate: 3600 },
       signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) {

@@ -94,7 +94,14 @@ const repeaterField = (field, name, type, iface, extra = {}) => ({
   field,
   name,
   type,
-  meta: { field, type, interface: iface, width: "full", required: true, ...extra },
+  meta: {
+    field,
+    type,
+    interface: iface,
+    width: "full",
+    required: true,
+    ...extra,
+  },
 });
 
 const repeater = (field, label, groupField, template, addLabel, fields) => ({
@@ -173,26 +180,38 @@ const FIELDS = [
 
   group("g_reasons", "Bonnes raisons"),
   input("reasons_title", "Titre", "g_reasons"),
-  repeater("reasons", "Raisons", "g_reasons", "{{text}}", "Ajouter une raison", [
-    repeaterField("text", "Raison", "text", "input-multiline"),
-  ]),
+  repeater(
+    "reasons",
+    "Raisons",
+    "g_reasons",
+    "{{text}}",
+    "Ajouter une raison",
+    [repeaterField("text", "Raison", "text", "input-multiline")],
+  ),
   input("reasons_cta", "Bouton", "g_reasons", {
     note: "La dernière raison, avec le lien vers la recherche, s'ajoute automatiquement après celles-ci.",
   }),
 
   group("g_faq", "Vos questions"),
   input("faq_title", "Titre", "g_faq"),
-  repeater("faq", "Questions", "g_faq", "{{question}}", "Ajouter une question", [
-    repeaterField("question", "Question", "string", "input"),
-    repeaterField("answer", "Réponse", "text", "input-rich-text-html", {
-      options: { toolbar: RICH_TEXT_TOOLBAR },
-    }),
-    repeaterField("id", "Identifiant", "string", "input", {
-      required: false,
-      note: "Facultatif. Sert aux liens directs vers la question : ne le changez pas une fois publié.",
-      options: { slug: true, trim: true },
-    }),
-  ]),
+  repeater(
+    "faq",
+    "Questions",
+    "g_faq",
+    "{{question}}",
+    "Ajouter une question",
+    [
+      repeaterField("question", "Question", "string", "input"),
+      repeaterField("answer", "Réponse", "text", "input-rich-text-html", {
+        options: { toolbar: RICH_TEXT_TOOLBAR },
+      }),
+      repeaterField("id", "Identifiant", "string", "input", {
+        required: false,
+        note: "Facultatif. Sert aux liens directs vers la question : ne le changez pas une fois publié.",
+        options: { slug: true, trim: true },
+      }),
+    ],
+  ),
 
   group("g_about", "Qui sommes-nous"),
   input("about_title", "Titre", "g_about"),
@@ -225,7 +244,12 @@ async function main() {
       versioning: true,
       icon: "home",
       translations: [
-        { language: "fr-FR", translation: "Page d'accueil", singular: "Page d'accueil", plural: "Page d'accueil" },
+        {
+          language: "fr-FR",
+          translation: "Page d'accueil",
+          singular: "Page d'accueil",
+          plural: "Page d'accueil",
+        },
       ],
       preview_url: `${FRONT_PUBLIC_URL}/api/preview?secret=${PREVIEW_SECRET}&version={{$version}}`,
     },
@@ -244,7 +268,10 @@ async function main() {
   }
 
   const content = JSON.parse(
-    readFileSync(new URL("../src/app/home/content.default.json", import.meta.url), "utf8"),
+    readFileSync(
+      new URL("../src/app/home/content.default.json", import.meta.url),
+      "utf8",
+    ),
   );
   await api("PATCH", `/items/${COLLECTION}`, content);
 
@@ -304,7 +331,7 @@ async function main() {
     icon: "sync",
     status: "active",
     trigger: "event",
-    accountability: "all",
+    accountability: "activity",
     options: {
       type: "action",
       scope: ["items.create", "items.update"],

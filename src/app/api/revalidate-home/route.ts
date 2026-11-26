@@ -1,6 +1,5 @@
-import { revalidateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { HOME_CONTENT_TAG } from "@/lib/homeContent";
 
 // Called by the CMS each time the home page content is saved.
 export async function POST(request: Request) {
@@ -9,7 +8,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  revalidateTag(HOME_CONTENT_TAG, "max");
+  revalidatePath("/home");
 
   // The first visit after a revalidation still gets the stale page while the
   // new one renders, so make that first visit ourselves.

@@ -23,6 +23,10 @@ import { FaqAnswer } from "./FaqAnswer";
 import { HomeAnalytics } from "./HomeAnalytics";
 import { getHomeContent } from "@/lib/homeContent";
 
+// Docker images are built without access to the CMS, so the prerendered page
+// holds the bundled content until this first revalidation.
+export const revalidate = 3600;
+
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
