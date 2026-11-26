@@ -1,5 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
+import { spawn, type ChildProcess } from "node:child_process";
+import { createServer, type Server } from "node:http";
 import churchDetails from "./fixtures/church-details.json";
+import homeContent from "../src/app/home/content.default.json";
 
 // The client hardcodes this base (src/utils.ts), so intercepting it makes these
 // tests deterministic and offline — unlike tests/seo.spec.ts, which deliberately
@@ -777,5 +780,96 @@ test.describe("home page content", () => {
         await request.get("/api/preview?secret=nope", { maxRedirects: 0 })
       ).status(),
     ).toBe(401);
+  });
+});
+
+// Runs its own `next start` wired to a fake CMS, so the CMS can be taken down
+// mid-test. That server shares .next with the main one: the last step puts the
+// bundled content back so other tests see the same page. The hourly
+// revalidation during an outage can't be exercised here without waiting an
+// hour.
+test.describe("home page content — CMS outage", () => {
+  test.describe.configure({ mode: "serial" });
+
+  const CMS_PORT = 3199;
+  const APP = "http://localhost:3101";
+  const SECRET = "test-webhook-secret";
+  const CMS_TITLE = "Titre venu du CMS";
+
+  let cmsContent: unknown = { ...homeContent, hero_title: CMS_TITLE };
+  let cmsUp = true;
+  let cms: Server;
+  let app: ChildProcess;
+
+  const revalidate = (request: import("@playwright/test").APIRequestContext) =>
+    request.post(`${APP}/api/revalidate-home`, {
+      headers: { authorization: `Bearer ${SECRET}` },
+    });
+  const homeHtml = async (
+    request: import("@playwright/test").APIRequestContext,
+  ) => (await request.get(`${APP}/home`)).text();
+
+  test.beforeAll(async () => {
+    cms = createServer((req, res) => {
+      if (!cmsUp) {
+        res.writeHead(503).end();
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ data: cmsContent }));
+    }).listen(CMS_PORT);
+
+    app = spawn(
+      process.execPath,
+      ["node_modules/next/dist/bin/next", "start", "-p", "3101"],
+      {
+        env: {
+          ...process.env,
+          CMS_URL: `http://localhost:${CMS_PORT}`,
+          CMS_TOKEN: "test-token",
+          CMS_WEBHOOK_SECRET: SECRET,
+        },
+        stdio: "ignore",
+      },
+    );
+    await expect
+      .poll(
+        async () => {
+          try {
+            return (await fetch(`${APP}/api/health`)).ok;
+          } catch {
+            return false;
+          }
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(true);
+  });
+
+  test.afterAll(async () => {
+    app?.kill();
+    cms?.close();
+  });
+
+  test("a save in the CMS reaches the page", async ({ request }) => {
+    expect((await revalidate(request)).status()).toBe(200);
+    await expect.poll(() => homeHtml(request)).toContain(CMS_TITLE);
+  });
+
+  test("a save while the CMS is down keeps the page", async ({ request }) => {
+    cmsUp = false;
+    expect((await revalidate(request)).status()).toBe(503);
+    for (let i = 0; i < 3; i++) {
+      expect(await homeHtml(request)).toContain(CMS_TITLE);
+    }
+  });
+
+  test("the page follows the CMS again once it is back", async ({
+    request,
+  }) => {
+    cmsUp = true;
+    cmsContent = homeContent;
+    await revalidate(request);
+    await expect.poll(() => homeHtml(request)).not.toContain(CMS_TITLE);
   });
 });

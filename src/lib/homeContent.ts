@@ -1,3 +1,4 @@
+import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import { cookies, draftMode } from "next/headers";
 import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
@@ -142,40 +143,54 @@ function normalize(raw: RawHomeContent): HomeContent {
 
 // Draft Mode makes this fetch skip the cache, so a preview always shows the
 // latest saved draft.
-async function fetchFromCms(version: string | undefined): Promise<unknown> {
-  const baseUrl = process.env.CMS_URL;
-  const token = process.env.CMS_TOKEN;
-  if (!baseUrl || !token) return null;
-
+async function fetchFromCms(
+  baseUrl: string,
+  token: string,
+  { version, fresh = false }: { version?: string; fresh?: boolean } = {},
+): Promise<HomeContent> {
   const query = version ? `?version=${encodeURIComponent(version)}` : "";
-  try {
-    const response = await fetch(`${baseUrl}/items/home${query}`, {
-      headers: { authorization: `Bearer ${token}` },
-      next: { revalidate: 3600 },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!response.ok) {
-      console.error(`Home content: CMS answered HTTP ${response.status}`);
-      return null;
-    }
-    return (await response.json()).data;
-  } catch (error) {
-    console.error("Home content: CMS unreachable", error);
-    return null;
+  const response = await fetch(`${baseUrl}/items/home${query}`, {
+    headers: { authorization: `Bearer ${token}` },
+    ...(fresh ? { cache: "no-store" } : { next: { revalidate: 3600 } }),
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!response.ok) {
+    throw new Error(`Home content: CMS answered HTTP ${response.status}`);
   }
+  return normalize(RawHomeContent.parse((await response.json()).data));
 }
 
+const bundledContent = () => normalize(RawHomeContent.parse(defaultContent));
+
 export async function getHomeContent(): Promise<HomeContent> {
+  const baseUrl = process.env.CMS_URL;
+  const token = process.env.CMS_TOKEN;
+  if (!baseUrl || !token) return bundledContent();
+
   const { isEnabled: preview } = await draftMode();
   const version = preview
     ? (await cookies()).get(PREVIEW_VERSION_COOKIE)?.value
     : undefined;
 
-  const fromCms = await fetchFromCms(version);
-  if (fromCms) {
-    const parsed = RawHomeContent.safeParse(fromCms);
-    if (parsed.success) return normalize(parsed.data);
-    console.error("Home content: invalid CMS content", parsed.error.issues);
+  try {
+    return await fetchFromCms(baseUrl, token, { version });
+  } catch (error) {
+    // At runtime the error must propagate: a failed revalidation keeps
+    // serving the last page rendered from the CMS. Falling back here would
+    // cache the bundled copy over it. Builds can't reach the CMS, though.
+    if (process.env.NEXT_PHASE !== PHASE_PRODUCTION_BUILD) throw error;
+    console.warn(
+      "Home content: CMS unavailable at build, using the bundled copy",
+      error,
+    );
+    return bundledContent();
   }
-  return normalize(RawHomeContent.parse(defaultContent));
+}
+
+// Throws unless the CMS serves valid published content right now.
+export async function checkCmsContent(): Promise<void> {
+  const baseUrl = process.env.CMS_URL;
+  const token = process.env.CMS_TOKEN;
+  if (!baseUrl || !token) throw new Error("Home content: no CMS configured");
+  await fetchFromCms(baseUrl, token, { fresh: true });
 }
