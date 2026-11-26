@@ -37,7 +37,9 @@
     "react-dom": "^19.3.0",
     "react-leaflet": "^5.0.0",
     "react-modal-sheet": "^4.4.0",
-    "use-debounce": "^10.0.6"
+    "sanitize-html": "^2.18.2",
+    "use-debounce": "^10.0.6",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
@@ -46,6 +48,7 @@
     "@types/node": "^20",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/sanitize-html": "^2.16.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
     "openapi-typescript": "^7.9.1",

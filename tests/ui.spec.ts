@@ -185,9 +185,7 @@ test.describe("church card — submissions", () => {
     });
   });
 
-  test("a text complement posts a text note with its ttl", async ({
-    page,
-  }) => {
+  test("a text complement posts a text note with its ttl", async ({ page }) => {
     await openFork(page);
     await page
       .getByRole("button", { name: "Compléter l'information", exact: true })
@@ -327,9 +325,7 @@ test.describe("church card — replies", () => {
       },
     });
 
-    await expect(
-      page.getByText("Réponse de l'équipe Confessio"),
-    ).toBeVisible();
+    await expect(page.getByText("Réponse de l'équipe Confessio")).toBeVisible();
     await expect(page.getByText("Marie", { exact: true })).toBeVisible();
     await expect(page.getByText("Anonyme", { exact: true })).toBeVisible();
   });
@@ -742,4 +738,44 @@ test.describe("error routes", () => {
       expect(res.status()).toBe(404);
     },
   );
+});
+
+test.describe("home page content", () => {
+  test("renders the FAQ answers' rich text", async ({ page }) => {
+    await page.goto("/home");
+    const question = page.locator("details#preparer");
+    await question.locator("summary").click();
+    await expect(
+      question.getByRole("heading", {
+        name: "Quelques pistes pour me préparer à recevoir le sacrement du Pardon",
+      }),
+    ).toBeVisible();
+    await expect(question.locator("ol").first().locator("li")).toHaveCount(2);
+    await expect(question.locator("ol[start='3']")).toBeVisible();
+  });
+
+  test("the steps link opens the detailed question", async ({ page }) => {
+    await page.goto("/home");
+    await page
+      .getByRole("link", { name: "Le déroulé détaillé, avec les prières" })
+      .click();
+    await expect(page.locator("details#etapes")).toHaveAttribute("open", "");
+  });
+
+  test("the CMS endpoints refuse requests without the secret", async ({
+    request,
+  }) => {
+    expect(
+      (
+        await request.post("/api/revalidate-home", {
+          headers: { authorization: "Bearer nope" },
+        })
+      ).status(),
+    ).toBe(401);
+    expect(
+      (
+        await request.get("/api/preview?secret=nope", { maxRedirects: 0 })
+      ).status(),
+    ).toBe(401);
+  });
 });

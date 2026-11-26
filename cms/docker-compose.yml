@@ -1,0 +1,35 @@
+services:
+  directus:
+    image: directus/directus:12.6.1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8055:8055"
+    volumes:
+      - ./database:/directus/database
+      - ./uploads:/directus/uploads
+      - ./extensions:/directus/extensions
+    env_file: .env
+    environment:
+      DB_CLIENT: sqlite3
+      DB_FILENAME: /directus/database/data.db
+      PUBLIC_URL: https://cms-confessio.pcdhebrail.fr
+      IP_TRUST_PROXY: "true"
+      WEBSOCKETS_ENABLED: "true"
+      TELEMETRY: "false"
+      CONTENT_SECURITY_POLICY_DIRECTIVES__FRAME_SRC: "'self' https://staging-confessio.pcdhebrail.fr"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8055/server/ping"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    networks:
+      - default
+      - confessio-front
+
+# The staging front reaches Directus at http://directus:8055 over its own
+# compose network, and Directus calls the front back at http://app:3000.
+networks:
+  confessio-front:
+    name: confessio-front_default
+    external: true

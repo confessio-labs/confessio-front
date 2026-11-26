@@ -19,31 +19,13 @@ import {
   SearchTextLink,
   StickySearchPill,
 } from "./SearchShortcuts";
-import { FaqAnswer, bindFrenchSpaces } from "./FaqAnswer";
-import { FAQ } from "./faq";
+import { FaqAnswer } from "./FaqAnswer";
 import { HomeAnalytics } from "./HomeAnalytics";
-import { MONTHLY_NEWS } from "./news";
+import { getHomeContent } from "@/lib/homeContent";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
-
-const STEPS = [
-  "L'accueil",
-  "La confession",
-  "La contrition",
-  "L'absolution",
-  "L'envoi",
-];
-
-const REASONS = [
-  "Parce que l'amour de Dieu est bien plus grand que mes péchés",
-  "Parce que la confession est un sacrement de guérison",
-  "Parce que la grâce de Dieu me donne la force de changer",
-  "Parce qu'être pardonné m'apprend à pardonner, à aimer mieux, à aimer davantage… ou tout simplement à aimer à nouveau",
-  "Parce que le pardon reçu est une source de joie qui déborde et rayonne autour de moi",
-  "Parce que ma confession me relève, mais relève aussi toute l'Église",
-];
 
 const DIOCESES = [
   { slug: "paris", name: "Paris" },
@@ -72,7 +54,10 @@ const FOCUS_RING =
 const FOOTER_LINK =
   "py-2 md:py-0 text-deepblue hover:underline underline-offset-2";
 
-export default function HomeDraftPage() {
+export default async function HomeDraftPage() {
+  const content = await getHomeContent();
+  const hasStepsQuestion = content.faq.some((entry) => entry.id === "etapes");
+
   return (
     <main className="bg-paper text-ink">
       <header
@@ -116,10 +101,10 @@ export default function HomeDraftPage() {
         >
           <div className="flex flex-col gap-2 md:gap-3.5">
             <p className="text-[46px] md:text-[76px] leading-none font-semibold tracking-[-0.03em]">
-              Osons le pardon
+              {content.hero_title}
             </p>
             <h1 className="text-[16px] md:text-[20px] leading-snug font-medium text-white/80">
-              Les horaires de confession près de chez vous
+              {content.hero_subtitle}
             </h1>
           </div>
           <div
@@ -130,9 +115,9 @@ export default function HomeDraftPage() {
             <HeroActions />
           </div>
           <p className="tabular text-[13px] md:text-[14px] text-white/70">
-            Plus de 1&nbsp;200 lieux en France
+            {content.hero_places}
             <span className="hidden md:inline">
-              &nbsp;: paroisses, sanctuaires, communautés
+              &nbsp;: {content.hero_places_detail}
             </span>
           </p>
         </div>
@@ -160,19 +145,19 @@ export default function HomeDraftPage() {
         </nav>
       </header>
 
-      {MONTHLY_NEWS && (
+      {content.news && (
         <aside
           aria-label="Actualité du mois"
           className="bg-white border-b border-hairline"
         >
           <a
-            href={MONTHLY_NEWS.href}
+            href={content.news.href}
             className={`${CONTAINER} py-4 md:py-5 flex items-center gap-3 md:gap-5 text-deepblue ${FOCUS_RING}`}
           >
             <span className="flex flex-col md:flex-row md:items-center gap-0.5 md:gap-5 flex-1 min-w-0">
               <span className={EYEBROW}>Ce mois-ci</span>
               <span className="text-[15px] md:text-[16px] font-semibold">
-                {MONTHLY_NEWS.title}
+                {content.news.title}
               </span>
             </span>
             <ArrowRightIcon size={18} className="shrink-0" />
@@ -186,19 +171,17 @@ export default function HomeDraftPage() {
         className={`${CONTAINER} py-12 md:py-26 flex flex-wrap gap-x-24 gap-y-8 md:gap-y-14`}
       >
         <div className="flex-[1_1_340px] flex flex-col gap-4 md:gap-5">
-          <h2 className={SECTION_TITLE}>Vous êtes attendu</h2>
+          <h2 className={SECTION_TITLE}>{content.welcome_title}</h2>
           <p className="max-w-[420px] text-[16px] md:text-[18px] leading-relaxed text-deepblue/80">
-            Aux horaires indiqués, sans rendez-vous. Comptez 5 à 10 minutes. Le
-            prêtre est tenu au secret absolu, et il vous guide si vous ne savez
-            plus comment faire.
+            {content.welcome_text}
           </p>
         </div>
         <div className="flex-[999_1_520px] flex flex-col gap-3">
-          <h3 className={EYEBROW}>Comment ça se passe</h3>
+          <h3 className={EYEBROW}>{content.steps_title}</h3>
           <ol className="tabular grid md:grid-cols-2 md:grid-rows-3 md:grid-flow-col md:gap-x-10 border-t border-hairline">
-            {STEPS.map((step, index) => (
+            {content.steps.map((step, index) => (
               <li
-                key={step}
+                key={index}
                 className="flex items-baseline gap-3.5 md:gap-4 py-3.5 md:py-5 border-b border-hairline"
               >
                 <span className="w-5 md:w-6 text-[20px] md:text-[26px] font-semibold text-deepblue">
@@ -210,12 +193,14 @@ export default function HomeDraftPage() {
               </li>
             ))}
           </ol>
-          <div>
-            <OpenQuestionLink questionId="etapes">
-              Le déroulé détaillé, avec les prières
-              <ArrowDownIcon size={16} />
-            </OpenQuestionLink>
-          </div>
+          {hasStepsQuestion && (
+            <div>
+              <OpenQuestionLink questionId="etapes">
+                {content.steps_link}
+                <ArrowDownIcon size={16} />
+              </OpenQuestionLink>
+            </div>
+          )}
         </div>
       </section>
 
@@ -224,14 +209,12 @@ export default function HomeDraftPage() {
           className={`${CONTAINER} py-16 md:py-30 flex flex-wrap items-end gap-x-24 gap-y-5 md:gap-y-8`}
         >
           <blockquote className="flex-[999_1_560px] text-[26px] md:text-[40px] leading-[1.2] font-medium tracking-[-0.02em]">
-            {bindFrenchSpaces(
-              "« Le Seigneur ne se lasse jamais de pardonner : jamais ! C'est nous qui nous lassons de lui demander pardon. »",
-            )}
+            {content.quote_text}
           </blockquote>
           <figcaption className="flex-[1_1_240px] text-[14px] md:text-[15px] leading-normal text-white/70">
-            Pape François
+            {content.quote_author}
             <br />
-            Angélus du 17 mars 2013
+            {content.quote_source}
           </figcaption>
         </figure>
       </section>
@@ -247,12 +230,12 @@ export default function HomeDraftPage() {
             <h2
               className={`${SECTION_TITLE} text-[30px] md:text-[44px] max-w-[360px]`}
             >
-              7 bonnes raisons d&apos;oser le pardon de Dieu
+              {content.reasons_title}
             </h2>
           </div>
           <div className="flex-[999_1_520px] flex flex-col gap-5 md:gap-8">
             <ol className="tabular border-t border-hairline">
-              {[...REASONS, null].map((reason, index) => (
+              {[...content.reasons, null].map((reason, index) => (
                 <li
                   key={index}
                   className="grid grid-cols-[32px_minmax(0,1fr)] md:grid-cols-[48px_minmax(0,1fr)] py-3.5 md:py-4.5 border-b border-hairline text-[16px] md:text-[19px] leading-snug text-deepblue"
@@ -271,9 +254,7 @@ export default function HomeDraftPage() {
               ))}
             </ol>
             <div className="flex flex-col md:items-start">
-              <SearchCtaButton>
-                Oui, j&apos;ose la réconciliation&nbsp;!
-              </SearchCtaButton>
+              <SearchCtaButton>{content.reasons_cta}</SearchCtaButton>
             </div>
           </div>
         </div>
@@ -285,10 +266,10 @@ export default function HomeDraftPage() {
         className={`${CONTAINER} py-14 md:py-28 flex flex-wrap gap-x-24 gap-y-7 md:gap-y-12`}
       >
         <div className="flex-[1_1_320px]">
-          <h2 className={SECTION_TITLE}>Vos questions</h2>
+          <h2 className={SECTION_TITLE}>{content.faq_title}</h2>
         </div>
         <div className="flex-[999_1_520px] divide-y divide-hairline border-y border-hairline">
-          {FAQ.map((entry) => (
+          {content.faq.map((entry) => (
             <details
               key={entry.id}
               id={entry.id}
@@ -298,13 +279,13 @@ export default function HomeDraftPage() {
               <summary
                 className={`flex items-center justify-between gap-4 py-4 md:py-5 cursor-pointer list-none text-deepblue text-[16px] md:text-[18px] font-semibold tracking-[-0.01em] rounded-xl [&::-webkit-details-marker]:hidden ${FOCUS_RING}`}
               >
-                {bindFrenchSpaces(entry.question)}
+                {entry.question}
                 <CaretDownIcon
                   size={18}
                   className="shrink-0 text-deepblue/60 transition-transform duration-200 ease-in-out group-open:rotate-180 motion-reduce:transition-none"
                 />
               </summary>
-              <FaqAnswer answer={entry.answer} />
+              <FaqAnswer html={entry.answerHtml} />
             </details>
           ))}
         </div>
@@ -362,26 +343,21 @@ export default function HomeDraftPage() {
           className={`${CONTAINER} py-14 md:py-26 flex flex-wrap gap-x-24 gap-y-4 md:gap-y-12`}
         >
           <div className="flex-[1_1_320px]">
-            <h2 className={SECTION_TITLE}>Qui sommes-nous&nbsp;?</h2>
+            <h2 className={SECTION_TITLE}>{content.about_title}</h2>
           </div>
           <div className="flex-[999_1_520px] max-w-[640px] flex flex-col gap-4 md:gap-5">
             <p className="text-[18px] md:text-[20px] leading-normal text-deepblue">
-              Une équipe de laïcs, encouragée par nos paroisses et nos diocèses,
-              qui veut rendre la confession accessible à tous. Nous avons confié
-              ce projet à la prière de sanctuaires et de monastères.
+              {content.about_lead}
             </p>
             <p className="text-[15px] md:text-[16px] leading-relaxed text-ink/80">
-              Les horaires viennent directement des sites des paroisses. Une IA
-              les lit, une équipe les vérifie, puis ils sont placés sur la
-              carte. Une erreur reste possible&nbsp;: dites-le-nous, nous
-              corrigeons vite.
+              {content.about_text}
             </p>
             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 pt-2">
               <a
                 href="https://confessio.fr/contact"
                 className={`h-12 px-5 rounded-full bg-deepblue text-white text-[16px] font-semibold flex items-center justify-center ${FOCUS_RING}`}
               >
-                Signaler une erreur, nous écrire
+                {content.about_contact_label}
               </a>
               <ShareSiteButton />
             </div>
@@ -414,7 +390,7 @@ export default function HomeDraftPage() {
           className={`${CONTAINER} py-16 md:py-26 flex flex-wrap items-center gap-x-24 gap-y-5 md:gap-y-8`}
         >
           <h2 className="flex-[1_1_320px] text-[40px] md:text-[56px] leading-[1.02] font-semibold tracking-[-0.025em]">
-            Osons le pardon
+            {content.closing_title}
           </h2>
           <div className="flex-[999_1_520px] flex flex-col md:flex-row gap-2.5 md:gap-3">
             <SearchLauncher />
