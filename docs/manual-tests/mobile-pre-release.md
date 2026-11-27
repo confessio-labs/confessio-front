@@ -5,7 +5,7 @@
 | Date | YYYY-MM-DD |
 | Tester | |
 | Branch / commit | |
-| Target URL | https://staging-confessio.pcdhebrail.fr |
+| Target URL | https://staging.confessio.fr |
 
 **This file is only for what a headless browser cannot tell you.** Real WebKit,
 a real finger, a real virtual keyboard, a real notch. Everything else belongs in
