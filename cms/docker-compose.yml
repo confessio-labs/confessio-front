@@ -16,7 +16,7 @@ services:
       IP_TRUST_PROXY: "true"
       WEBSOCKETS_ENABLED: "true"
       TELEMETRY: "false"
-      CONTENT_SECURITY_POLICY_DIRECTIVES__FRAME_SRC: "'self' https://staging-confessio.pcdhebrail.fr"
+      CONTENT_SECURITY_POLICY_DIRECTIVES__FRAME_SRC: "'self' https://staging.confessio.fr"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8055/server/ping"]
       interval: 30s

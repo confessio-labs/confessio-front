@@ -5,7 +5,7 @@
 //
 // Usage:
 //   DIRECTUS_URL=http://localhost:8055 ADMIN_EMAIL=… ADMIN_PASSWORD=… \
-//   FRONT_PUBLIC_URL=https://staging-confessio.pcdhebrail.fr \
+//   FRONT_PUBLIC_URL=https://staging.confessio.fr \
 //   FRONT_INTERNAL_URL=http://app:3000 \
 //   CMS_PREVIEW_SECRET=… CMS_WEBHOOK_SECRET=… \
 //   node cms/bootstrap.mjs
