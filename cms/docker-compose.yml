@@ -12,7 +12,7 @@ services:
     environment:
       DB_CLIENT: sqlite3
       DB_FILENAME: /directus/database/data.db
-      PUBLIC_URL: https://cms-confessio.pcdhebrail.fr
+      PUBLIC_URL: https://contenu.confessio.fr
       IP_TRUST_PROXY: "true"
       WEBSOCKETS_ENABLED: "true"
       TELEMETRY: "false"
